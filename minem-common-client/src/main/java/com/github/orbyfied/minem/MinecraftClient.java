@@ -68,10 +68,9 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
             ByteBuf buf = getWriteBuffer();
 
             // write packet type and data
-            int dataStartIndex = buf.writeIndex();
             buf.writeVarInt(packet.getId());
             packet.getMapping().writePacketData(packet, buf);
-            int dataLength = buf.writeIndex() - dataStartIndex;
+            int dataLength = buf.remainingWritten();
 
             // write length directly, then write the buffer
             ProtocolIO.writeVarIntToStream(stream, dataLength);
