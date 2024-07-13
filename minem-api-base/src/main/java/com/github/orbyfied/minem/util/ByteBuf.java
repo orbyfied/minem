@@ -1,5 +1,6 @@
 package com.github.orbyfied.minem.util;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import java.nio.ByteBuffer;
@@ -10,6 +11,7 @@ import java.nio.ByteBuffer;
 @RequiredArgsConstructor
 public class ByteBuf {
 
+    @Getter
     final ByteBuffer buffer;
 
     public static ByteBuf createDirect(int size) {
