@@ -1,6 +1,7 @@
 package com.github.orbyfied.minem.protocol;
 
-import com.github.orbyfied.minem.GameContext;
+import com.github.orbyfied.minem.Context;
+import com.github.orbyfied.minem.util.ByteBuf;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -33,15 +34,19 @@ public class Packet {
      */
     public static int CANCEL = 1 << 3;
 
-    int id;                // The read numeric ID of the packet
-    ProtocolPhase phase;   // The phase the packet was created/read in
-    int flags;             // The base flags for the packet
+    int id;                  // The read numeric ID of the packet
+    ProtocolPhase phase;     // The phase the packet was created/read in
+    int flags;               // The base flags for the packet
 
-    Protocol protocol;     // The protocol, when qualified
-    PacketMapping mapping; // The packet mapping, when qualified
-    GameContext context;   // The context of this packet
+    ProtocolContext context; // The context of this packet
+    PacketSource source;     // The source of the packet, or constructed if null
+    PacketMapping mapping;   // The packet mapping
 
-    Object data;           // The deserialized data of the packet
+    Object data;             // The deserialized data of the packet
+
+    public boolean isConstructed() {
+        return source == null;
+    }
 
     public boolean check(int flag) {
         return (flags & flag) > 0;
@@ -57,12 +62,12 @@ public class Packet {
         return this;
     }
 
-    public GameContext context() {
+    public Context context() {
         return context;
     }
 
     @SuppressWarnings("unchecked")
-    public <C extends GameContext> C context(Class<C> cClass) {
+    public <C extends Context> C context(Class<C> cClass) {
         if (!cClass.isInstance(context)) {
             throw new IllegalStateException("Expected game context of type " + cClass.getName());
         }

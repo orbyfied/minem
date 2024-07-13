@@ -4,6 +4,7 @@ import com.github.orbyfied.minem.reflect.UnsafeFieldDesc;
 import com.github.orbyfied.minem.util.ByteBuf;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import slatepowered.veru.misc.Throwables;
 import slatepowered.veru.reflect.UnsafeUtil;
 
 import java.lang.invoke.MethodHandle;
@@ -26,7 +27,7 @@ import java.util.Map;
 public class PacketMapping {
 
     final int id;                              // The numerical ID of this packet type
-    final int phase;                           // The game phase in which this mapping occurs
+    final ProtocolPhase phase;                 // The game phase in which this mapping occurs
     final int flags;                           // The flags on this mapping, this consists of mapping flags and Packet flags
     final String primaryName;                  // The primary name of this mapping
     final String[] aliases;                    // The aliases of this mapping
@@ -34,9 +35,53 @@ public class PacketMapping {
     final MethodHandle constructor;            // The constructor to be used when building packet data
     final List<Class<?>> dataInterfaces;       // All interfaces/superclasses the data class implements
     final Map<String, UnsafeFieldDesc> fields; // All compiled fields on the mapping (excludes transient)
-    final MethodHandle methodDataRead;
-    final MethodHandle methodDataWrite;
+    final MethodHandle methodDataRead;         // Fast method handle for method `void read(Object data, Packet packet, ByteBuf buf)`
+    final MethodHandle methodDataWrite;        // Fast method handle for method `void write(Object data, Packet packet, ByteBuf buf)`
 
+    public void writePacketData(Packet packet, ByteBuf buf) {
+        try {
+            methodDataWrite.invoke(packet.data, packet, buf);
+        } catch (Throwable ex) {
+            Throwables.sneakyThrow(ex);
+        }
+    }
+
+    public void readPacketData(Packet packet, ByteBuf buf) {
+        try {
+            methodDataRead.invoke(packet.data, packet, buf);
+        } catch (Throwable ex) {
+            Throwables.sneakyThrow(ex);
+        }
+    }
+
+    /**
+     * Create a new packet container with the default packet data.
+     *
+     * @param context The protocol/packet context.
+     * @return The packet container.
+     */
+    public Packet createPacketContainer(ProtocolContext context) {
+        try {
+            Packet packet = new Packet();
+            packet.context = context;
+            packet.data = constructor.invoke();
+            packet.flags = this.flags;
+            packet.id = this.id;
+            packet.phase = this.phase;
+            packet.mapping = this;
+            return packet;
+        } catch (Throwable t) {
+            Throwables.sneakyThrow(t);
+            return null;
+        }
+    }
+
+    /**
+     * Compile the given class to a packet mapping from the data class using:
+     * - The {@link Mapping} annotation,
+     * - The methods in the {@link PacketData} interface and
+     * - An empty constructor for construction of
+     */
     public static PacketMapping compile(Class<?> klass) {
         try {
             Mapping annotation = klass.getAnnotation(Mapping.class);
@@ -75,7 +120,7 @@ public class PacketMapping {
                 fieldMap.put(field.getName(), UnsafeFieldDesc.forField(field));
             }
 
-            return new PacketMapping(annotation.id(), annotation.phase().ordinal(), annotation.flags(),
+            return new PacketMapping(annotation.id(), annotation.phase(), annotation.flags(),
                     primaryName, annotation.aliases(), klass, constructor, dataItf,
                     fieldMap, methodRead, methodWrite);
         } catch (Exception ex) {

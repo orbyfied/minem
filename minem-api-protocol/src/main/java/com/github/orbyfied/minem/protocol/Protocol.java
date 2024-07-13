@@ -110,9 +110,31 @@ public class Protocol {
     /**
      * Get the phase spec for the given phase or null if absent.
      */
-    public ProtocolPhaseSpecification forPhaseUnchecked(ProtocolPhase phase) {
+    public ProtocolPhaseSpecification forPhaseOrNull(ProtocolPhase phase) {
         int ord = phase.ordinal();
         return ord < specsByPhaseOrdinal.length ? specsByPhaseOrdinal[phase.ordinal()] : null;
+    }
+
+    /**
+     * Get the phase spec for the given phase or null if absent.
+     */
+    public ProtocolPhaseSpecification forPhaseOrNull(int ord) {
+        return ord < specsByPhaseOrdinal.length ? specsByPhaseOrdinal[ord] : null;
+    }
+
+    public ProtocolPhaseSpecification getOrCreatePhaseSpec(ProtocolPhase phase) {
+        ProtocolPhaseSpecification spec = forPhaseOrNull(phase);
+        if (spec == null) {
+            spec = createPhaseSpec(phase);
+        }
+
+        return spec;
+    }
+
+    public Protocol registerPacketMapping(PacketMapping mapping) {
+        getOrCreatePhaseSpec(mapping.getPhase())
+                .registerPacketMapping(mapping);
+        return this;
     }
 
 }
