@@ -54,6 +54,10 @@ public interface PacketRegistry {
         return registerPacketMappings(List.of(mappings));
     }
 
+    default PacketRegistry compileAndRegister(Class<?> klass) {
+        return registerPacketMapping(PacketMapping.compile(klass));
+    }
+
     /**
      * List all registered packet mappings.
      *
