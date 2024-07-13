@@ -1,0 +1,4 @@
+rootProject.name = 'minem'
+include 'minem-api-protocol'
+include 'minem-api-base'
+

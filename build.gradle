@@ -1,0 +1,38 @@
+group 'com.github.orbyfied'
+version '1.0.0'
+
+def VERU_VERSION = "5a975a0"
+
+subprojects {
+    group 'com.github.orbyfied.minem'
+    version '1.0.0'
+
+    afterEvaluate {
+        // dependencies
+        dependencies {
+            implementation "com.github.slatepowered.veru:veru-java8:${VERU_VERSION}"
+            implementation "com.github.slatepowered.veru:veru-config:${VERU_VERSION}"
+            implementation project(":minem-api-base")
+
+            implementation 'com.google.code.gson:gson:2.10.1'
+
+            // lombok
+            compileOnly 'org.projectlombok:lombok:1.18.30'
+            annotationProcessor 'org.projectlombok:lombok:1.18.30'
+
+            testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+            testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+        }
+
+        // repositories
+        repositories {
+            mavenCentral()
+            maven { url 'https://www.jitpack.io' }
+            maven { url 'https://repo.hypixel.net/repository/Hypixel/' }
+        }
+
+        test {
+            useJUnitPlatform()
+        }
+    }
+}
