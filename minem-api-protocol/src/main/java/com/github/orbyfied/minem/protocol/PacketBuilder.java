@@ -2,7 +2,6 @@ package com.github.orbyfied.minem.protocol;
 
 import com.github.orbyfied.minem.reflect.UnsafeFieldDesc;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 

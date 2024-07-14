@@ -6,6 +6,8 @@ import sun.misc.Unsafe;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -20,6 +22,18 @@ public class ByteBuf {
     }
 
     static final Unsafe UNSAFE = UnsafeUtil.getUnsafe();
+
+    static final MethodHandle constructorDirectNIOBuffer;
+
+    static {
+        try {
+            constructorDirectNIOBuffer = UnsafeUtil.getInternalLookup()
+                    .findConstructor(Class.forName("java.nio.DirectByteBuffer"), MethodType.methodType(void.class,
+                            long.class /* addr */, int.class /* cap */));
+        } catch (Exception ex) {
+            throw new ExceptionInInitializerError(ex);
+        }
+    }
 
     int readIndex = 0;  // The current read offset in bytes into the buffer
     int writeIndex = 0; // The current write offset in bytes into the buffer
@@ -89,7 +103,7 @@ public class ByteBuf {
     }
 
     // ensure we have enough capacity to write the given amount of bytes
-    private void ensureWriteCap(int amt) {
+    public void ensureWriteCapacity(int amt) {
         if (writeIndex + amt >= capacity) {
             reallocate((int) (capacity * 1.5));
         }
@@ -130,14 +144,14 @@ public class ByteBuf {
     public void setByte(int o, byte v) { UNSAFE.putByte(ptr + o, v); }
     public void setBoolean(int o, boolean v) { setByte(o, (byte) (v ? 1 : 0)); }
 
-    public void writeLong(long val) { ensureWriteCap(8); setLong(writeIndex, val); advWriter(8); }
-    public void writeInt(int val) { ensureWriteCap(4); setInt(writeIndex, val); advWriter(4); }
-    public void writeDouble(long val) { ensureWriteCap(8); setDouble(writeIndex, val); advWriter(8); }
-    public void writeFloat(float val) { ensureWriteCap(4); setFloat(writeIndex, val); advWriter(4); }
-    public void writeShort(short val) { ensureWriteCap(2); setShort(writeIndex, val); advWriter(2); }
-    public void writeChar(char val) { ensureWriteCap(2); setChar(writeIndex, val); advWriter(2); }
-    public void writeByte(byte val) { ensureWriteCap(1); setByte(writeIndex, val); advWriter(1); }
-    public void writeBoolean(boolean val) { ensureWriteCap(1); setBoolean(writeIndex, val); advWriter(1); }
+    public void writeLong(long val) { ensureWriteCapacity(8); setLong(writeIndex, val); advWriter(8); }
+    public void writeInt(int val) { ensureWriteCapacity(4); setInt(writeIndex, val); advWriter(4); }
+    public void writeDouble(long val) { ensureWriteCapacity(8); setDouble(writeIndex, val); advWriter(8); }
+    public void writeFloat(float val) { ensureWriteCapacity(4); setFloat(writeIndex, val); advWriter(4); }
+    public void writeShort(short val) { ensureWriteCapacity(2); setShort(writeIndex, val); advWriter(2); }
+    public void writeChar(char val) { ensureWriteCapacity(2); setChar(writeIndex, val); advWriter(2); }
+    public void writeByte(byte val) { ensureWriteCapacity(1); setByte(writeIndex, val); advWriter(1); }
+    public void writeBoolean(boolean val) { ensureWriteCapacity(1); setBoolean(writeIndex, val); advWriter(1); }
 
     public void getBytes(int offset, byte[] bytes, int destOff, int len) {
         if (offset + len >= capacity)
@@ -206,7 +220,7 @@ public class ByteBuf {
                 int r = stream.read(buffer);
                 read += r;
 
-                ensureWriteCap(r);
+                ensureWriteCapacity(r);
                 setBytes(writeIndex, addr, 0, r);
                 writeIndex += r;
             }
@@ -256,7 +270,7 @@ public class ByteBuf {
     public void writeString(String str) {
         byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
         int len = bytes.length;
-        ensureWriteCap(len + 5 /* var int */);
+        ensureWriteCapacity(len + 5 /* var int */);
         writeVarInt(len);
         setBytes(writeIndex, bytes);
         advWriter(len);
@@ -280,7 +294,7 @@ public class ByteBuf {
     }
 
     public void writeUUID(UUID uuid) {
-        ensureWriteCap(16);
+        ensureWriteCapacity(16);
         setLong(writeIndex, uuid.getMostSignificantBits());
         setLong(writeIndex, uuid.getLeastSignificantBits());
         advWriter(16);
@@ -325,7 +339,7 @@ public class ByteBuf {
     }
 
     public void writeVarInt(int value) {
-        ensureWriteCap(5);
+        ensureWriteCapacity(5);
         while (true) {
             if ((value & ~SEGMENT_BITS) == 0) {
                 writeByte((byte) value);
@@ -339,7 +353,7 @@ public class ByteBuf {
     }
 
     public void writeVarLong(long value) {
-        ensureWriteCap(10);
+        ensureWriteCapacity(10);
         while (true) {
             if ((value & ~((long) SEGMENT_BITS)) == 0) {
                 writeByte((byte) value);
@@ -350,6 +364,20 @@ public class ByteBuf {
 
             value >>>= 7;
         }
+    }
+
+    public byte[] readBytes(int len) {
+        byte[] bytes = new byte[len];
+        checkReadCap(len);
+        getBytes(readIndex, bytes);
+        readIndex += len;
+        return bytes;
+    }
+
+    public void writeBytes(byte[] bytes) {
+        ensureWriteCapacity(bytes.length);
+        setBytes(writeIndex, bytes);
+        advWriter(bytes.length);
     }
 
     public int capacity() {
@@ -376,6 +404,15 @@ public class ByteBuf {
 
     public long ptr() {
         return ptr;
+    }
+
+    public ByteBuffer nioReference() {
+        try {
+            return (ByteBuffer) constructorDirectNIOBuffer.invoke(this.ptr, this.capacity);
+        } catch (Throwable t) {
+            Throwables.sneakyThrow(t);
+            throw new AssertionError();
+        }
     }
 
     static final long BASE_OFF_BYTE_ARRAY = UNSAFE.arrayBaseOffset(byte[].class);

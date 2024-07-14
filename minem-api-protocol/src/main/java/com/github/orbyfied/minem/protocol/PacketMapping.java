@@ -11,7 +11,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -26,7 +25,8 @@ import java.util.Map;
 @Getter
 public class PacketMapping {
 
-    final int id;                              // The numerical ID of this packet type
+    final int registryId;                      // The numerical registry ID of this packet type
+    final int networkId;                       // The ID on the network for this mapping
     final ProtocolPhase phase;                 // The game phase in which this mapping occurs
     final int flags;                           // The flags on this mapping, this consists of mapping flags and Packet flags
     final String primaryName;                  // The primary name of this mapping
@@ -35,6 +35,7 @@ public class PacketMapping {
     final MethodHandle constructor;            // The constructor to be used when building packet data
     final List<Class<?>> dataInterfaces;       // All interfaces/superclasses the data class implements
     final Map<String, UnsafeFieldDesc> fields; // All compiled fields on the mapping (excludes transient)
+    final Destination destination;             // Where packets are bound
     final MethodHandle methodDataRead;         // Fast method handle for method `void read(Object data, Packet packet, ByteBuf buf)`
     final MethodHandle methodDataWrite;        // Fast method handle for method `void write(Object data, Packet packet, ByteBuf buf)`
 
@@ -66,7 +67,7 @@ public class PacketMapping {
             packet.context = context;
             packet.data = constructor.invoke();
             packet.flags = this.flags;
-            packet.id = this.id;
+            packet.networkId = this.networkId;
             packet.phase = this.phase;
             packet.mapping = this;
             return packet;
@@ -120,9 +121,16 @@ public class PacketMapping {
                 fieldMap.put(field.getName(), UnsafeFieldDesc.forField(field));
             }
 
-            return new PacketMapping(annotation.id(), annotation.phase(), annotation.flags(),
+            Destination destination = annotation.dest();
+            if (destination == Destination.FIND) {
+                destination = annotation.primaryName().toLowerCase().startsWith("serverbound") ?
+                        Destination.SERVERBOUND : Destination.CLIENTBOUND;
+            }
+
+            int networkId = annotation.id();
+            return new PacketMapping(PacketRegistry.getRegistryID(networkId, destination), networkId, annotation.phase(), annotation.flags(),
                     primaryName, annotation.aliases(), klass, constructor, dataItf,
-                    fieldMap, methodRead, methodWrite);
+                    fieldMap, destination, methodRead, methodWrite);
         } catch (Exception ex) {
             throw new RuntimeException("Failed to compile mapping " + klass, ex);
         }

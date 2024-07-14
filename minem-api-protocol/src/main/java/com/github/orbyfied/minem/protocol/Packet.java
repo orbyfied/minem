@@ -1,7 +1,6 @@
 package com.github.orbyfied.minem.protocol;
 
 import com.github.orbyfied.minem.Context;
-import com.github.orbyfied.minem.util.ByteBuf;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -34,7 +33,7 @@ public class Packet {
      */
     public static int CANCEL = 1 << 3;
 
-    int id;                  // The read numeric ID of the packet
+    int networkId;           // The read/written numeric ID of the packet
     ProtocolPhase phase;     // The phase the packet was created/read in
     int flags;               // The base flags for the packet
 

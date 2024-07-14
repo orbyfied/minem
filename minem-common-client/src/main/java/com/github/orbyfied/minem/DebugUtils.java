@@ -8,7 +8,7 @@ final class DebugUtils {
      * Create debug info for the given packet.
      */
     public static String debugInfo(Packet packet) {
-        return "  Packet(id: " + packet.getId() + " `" + packet.getData().getClass().getSimpleName() + "`)";
+        return "  Packet(id: " + packet.getNetworkId() + " `" + packet.getData().getClass().getSimpleName() + "`)";
     }
 
 }

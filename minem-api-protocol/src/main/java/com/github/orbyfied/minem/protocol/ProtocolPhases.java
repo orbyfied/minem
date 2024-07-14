@@ -7,6 +7,8 @@ public enum ProtocolPhases implements ProtocolPhase {
 
     HANDSHAKE,
 
+    STATUS, // unused in client
+
     LOGIN,
 
     CONFIGURATION,

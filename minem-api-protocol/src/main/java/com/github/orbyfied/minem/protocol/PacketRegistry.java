@@ -5,6 +5,22 @@ import java.util.List;
 
 public interface PacketRegistry {
 
+    static int getNetworkID(int registryId, Destination dest) {
+        return (registryId - dest.getIdX2Offset()) / 2;
+    }
+
+    static int getRegistryID(int networkId, Destination dest) {
+        return networkId * 2 + dest.getIdX2Offset();
+    }
+
+    default PacketMapping getClientboundPacketMapping(int networkID) {
+        return getPacketMapping(networkID * 2 + 1);
+    }
+
+    default PacketMapping getServerboundPacketMapping(int networkID) {
+        return getPacketMapping(networkID * 2);
+    }
+
     /**
      * Get the packet mapping for the given numerical ID.
      *
