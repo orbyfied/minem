@@ -1,7 +1,7 @@
 package com.github.orbyfied.minem.protocol;
 
 import com.github.orbyfied.minem.reflect.UnsafeFieldDesc;
-import com.github.orbyfied.minem.util.ByteBuf;
+import com.github.orbyfied.minem.buffer.ByteBuf;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import slatepowered.veru.misc.Throwables;

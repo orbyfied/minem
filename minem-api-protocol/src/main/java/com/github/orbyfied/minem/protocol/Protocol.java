@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -135,6 +137,18 @@ public class Protocol {
         getOrCreatePhaseSpec(mapping.getPhase())
                 .registerPacketMapping(mapping);
         return this;
+    }
+
+    public Protocol registerPacketMappings(Collection<PacketMapping> mappings) {
+        for (PacketMapping mapping : mappings) {
+            registerPacketMapping(mapping);
+        }
+
+        return this;
+    }
+
+    public Protocol registerPacketMappings(PacketMapping... mappings) {
+        return registerPacketMappings(List.of(mappings));
     }
 
 }

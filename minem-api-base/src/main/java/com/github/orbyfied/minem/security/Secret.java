@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 public class Secret<T> {
 
     final String name;
-    T value;
+    volatile T value;
 
     @Override
     public String toString() {

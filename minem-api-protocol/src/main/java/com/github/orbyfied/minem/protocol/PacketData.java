@@ -1,6 +1,6 @@
 package com.github.orbyfied.minem.protocol;
 
-import com.github.orbyfied.minem.util.ByteBuf;
+import com.github.orbyfied.minem.buffer.ByteBuf;
 
 /**
  * Base interface for packet data.

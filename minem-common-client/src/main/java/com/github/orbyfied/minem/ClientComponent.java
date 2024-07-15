@@ -32,4 +32,12 @@ public abstract class ClientComponent {
         return true;
     }
 
+    /**
+     * Called when this component should void all state, for example because
+     * the client disconnected and is preparing for a new connection.
+     */
+    protected void resetState() {
+
+    }
+
 }

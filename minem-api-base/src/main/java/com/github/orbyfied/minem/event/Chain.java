@@ -2,6 +2,7 @@ package com.github.orbyfied.minem.event;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * A chain of interfaces which can be invoked in-order,
@@ -36,6 +37,11 @@ public class Chain<F> {
     private final List<F> handlers = new ArrayList<>();
 
     /**
+     * Supplies the accumulator values.
+     */
+    private Supplier<?> accumulatorSupplier;
+
+    /**
      * The return accumulator for the standard invoker.
      */
     private ReturnAccumulator<?, ?> returnAccumulator;
@@ -59,7 +65,8 @@ public class Chain<F> {
         invoker = Invokers.createDynamicInvoker(
                 () -> handlers,
                 fClass,
-                (ReturnAccumulator<Object, Object>) returnAccumulator
+                accumulatorSupplier != null ? (Supplier<Object>) accumulatorSupplier : () -> null,
+                returnAccumulator != null ? (ReturnAccumulator<Object, Object>) returnAccumulator : (__, obj) -> obj
         );
     }
 
@@ -71,6 +78,11 @@ public class Chain<F> {
     public <A, R> Chain<F> withReturnAccumulator(ReturnAccumulator<A, R> returnAccumulator) {
         this.returnAccumulator = returnAccumulator;
         updateStandardInvoker();
+        return this;
+    }
+
+    public Chain<F> accumulatorSupplier(Supplier<?> accumulatorSupplier) {
+        this.accumulatorSupplier = accumulatorSupplier;
         return this;
     }
 
@@ -156,6 +168,13 @@ public class Chain<F> {
      */
     public Chain<F> add(Chain<? extends F> chain, Placement<F> placement) {
         return add(chain.invoker(), placement);
+    }
+
+    public Chain<F> integerFlagHandling() {
+        accumulatorSupplier(() -> 0);
+        return this.<Integer, Integer>withReturnAccumulator((current, result) -> {
+            return result != null ? current | result : current;
+        });
     }
 
 }

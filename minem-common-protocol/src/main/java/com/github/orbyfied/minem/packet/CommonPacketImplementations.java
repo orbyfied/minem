@@ -10,7 +10,7 @@ public final class CommonPacketImplementations {
     public static final Class<?>[] CLASSES = new Class[] {
             ServerboundHandshakePacket.class,
             ClientboundStatusPacket.class,
-            ServerboundLoginStart.class,
+            ServerboundLoginStartPacket.class,
             ClientboundLoginDisconnectPacket.class,
             ClientboundEncryptionRequestPacket.class,
             ServerboundEncryptionResponsePacket.class,

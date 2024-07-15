@@ -51,6 +51,15 @@ public class Packet {
         return (flags & flag) > 0;
     }
 
+    public boolean is(Class<?> klass) {
+        return klass.isInstance(data);
+    }
+
+    public Packet withData(Object data) {
+        this.data = data;
+        return this;
+    }
+
     public Packet set(int flag) {
         flags |= flag;
         return this;

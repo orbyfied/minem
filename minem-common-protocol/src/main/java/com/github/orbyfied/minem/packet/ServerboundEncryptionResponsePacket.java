@@ -4,9 +4,8 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.util.ByteBuf;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
+import com.github.orbyfied.minem.buffer.ByteBuf;
+import lombok.*;
 
 /**
  * Common packet implementation: Encryption request
@@ -15,6 +14,9 @@ import lombok.NoArgsConstructor;
  */
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
+@Setter
+@ToString
 @Mapping(id = 0x01, primaryName = "ServerboundEncryptionResponse", phase = ProtocolPhases.LOGIN)
 public class ServerboundEncryptionResponsePacket implements PacketData {
 

@@ -31,7 +31,7 @@ public class MutablePacketRegistry implements PacketRegistry {
         mappingList.add(mapping);
 
         // append to index
-        int id = mapping.getId();
+        int id = mapping.getRegistryId();
         if (id < HIGH_ID_THRESHOLD) {
             if (id >= mappingsById.length) {
                 PacketMapping[] old = mappingsById;

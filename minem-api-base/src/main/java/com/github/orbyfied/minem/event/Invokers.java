@@ -16,6 +16,7 @@ final class Invokers {
     @SuppressWarnings("unchecked")
     public static <F> F createDynamicInvoker(Supplier<List<F>> handlerListSupplier,
                                              Class<F> fClass,
+                                             Supplier<Object> accumulatorSupplier,
                                              ReturnAccumulator<Object, Object> returnAccumulator) {
         // calculate which methods are
         // handler methods
@@ -35,7 +36,7 @@ final class Invokers {
 
                 List<Integer> toRemove = new ArrayList<>();
 
-                Object current = null;
+                Object current = accumulatorSupplier.get();
                 List<F> handlerList = handlerListSupplier.get();
                 final int length = handlerList.size();
                 for (int i = 0; i < length; i++) {

@@ -1,7 +1,7 @@
 package com.github.orbyfied.minem.security;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
@@ -9,16 +9,16 @@ import java.util.function.Function;
  */
 public class SecretStore {
 
-    final Map<String, Secret<?>> secretMap = new HashMap<>();
+    final Map<String, Secret<?>> secretMap = new ConcurrentHashMap<>();
 
     @SuppressWarnings("unchecked")
     public <T> Secret<T> getSecret(String name) {
-        return (Secret<T>) secretMap.computeIfAbsent(name, __ -> new Secret<>(name));
+        return (Secret<T>) secretMap.computeIfAbsent(name.toLowerCase(), __ -> new Secret<>(name));
     }
 
     @SuppressWarnings("unchecked")
     public <T, S extends Secret<T>> S getSecret(String name, Function<String, S> computer) {
-        return (S) secretMap.computeIfAbsent(name, computer);
+        return (S) secretMap.computeIfAbsent(name.toLowerCase(), __ -> computer.apply(name));
     }
 
     public <T> T getValidSecretValue(String name) {
@@ -26,8 +26,13 @@ public class SecretStore {
         return secret.isValid() ? secret.getValue() : null;
     }
 
+    @SuppressWarnings("unchecked")
+    public <T> T getSecretValue(String name) {
+        return (T) getSecret(name).getValue();
+    }
+
     public SecretStore storeSecret(Secret<?> secret) {
-        secretMap.put(secret.getName(), secret);
+        secretMap.put(secret.getName().toLowerCase(), secret);
         return this;
     }
 

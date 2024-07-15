@@ -15,6 +15,8 @@ public class Token extends Secret<String> {
 
     @Override
     public boolean isValid() {
+        if (duration == -1) return false; // never valid
+        if (duration == -2) return true; // always valid
         return super.isValid() && timeObtained + duration > System.currentTimeMillis();
     }
 

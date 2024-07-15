@@ -4,9 +4,8 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.util.ByteBuf;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
+import com.github.orbyfied.minem.buffer.ByteBuf;
+import lombok.*;
 
 /**
  * Common packet implementation: Status
@@ -14,6 +13,9 @@ import lombok.NoArgsConstructor;
  * https://wiki.vg/Protocol#Status
  */
 @Mapping(id = 0x00, phase = ProtocolPhases.STATUS, primaryName = "ClientboundStatus")
+@Getter
+@Setter
+@ToString
 @NoArgsConstructor
 @AllArgsConstructor
 public class ClientboundStatusPacket implements PacketData {

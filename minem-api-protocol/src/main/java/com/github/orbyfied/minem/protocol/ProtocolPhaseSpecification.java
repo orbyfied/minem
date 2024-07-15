@@ -29,6 +29,7 @@ public class ProtocolPhaseSpecification extends MutablePacketRegistry {
     /**
      * Append all registrations from the given mapping to this one.
      */
+    @SuppressWarnings("unchecked")
     public void merge(ProtocolPhaseSpecification other) {
         for (PacketMapping mapping : other.allPacketMappings()) {
             this.registerPacketMapping(mapping);
