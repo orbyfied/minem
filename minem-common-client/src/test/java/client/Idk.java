@@ -71,7 +71,7 @@ public class Idk {
         });
 
         System.out.println("Created client, connecting");
-        client.connect(new InetSocketAddress("play.manacube.net", 25565)).join();
+        client.connect(new InetSocketAddress("mc.hypixel.net", 25565)).join();
 
         client.find(ClientAuthenticator.class).onLoginComplete().addLast((client1, authenticator, acknowledgedPacket) -> {
             System.out.println("Login completed (handler called)");

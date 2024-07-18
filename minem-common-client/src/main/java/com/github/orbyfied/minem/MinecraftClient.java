@@ -205,6 +205,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         onPacketReceived.addFirst(packetContainer -> {
             if (packetContainer.data() instanceof ClientboundLoginDisconnectPacket packet) {
                 // todo: call event or something
+                System.out.println("LoginDisconnect (reason = " + packet.getReason() + ")");
                 close();
             }
 
@@ -440,6 +441,9 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                     PacketMapping mapping = protocol
                             .forPhase(phase)
                             .getClientboundPacketMapping(packetID);
+                    if (mapping == null) {
+                        continue; // todo: create some kind of buffer-based unknown packet type
+                    }
 
                     Packet packet = mapping.createPacketContainer(this);
                     mapping.readPacketData(packet, buf);

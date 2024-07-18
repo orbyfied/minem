@@ -28,39 +28,35 @@ public class ProtocolIO {
 
     /** Flexible implementation of readVarInt() for any byte stream-like source */
     public static int readVarInt(IOByteSupplier byteSupplier) throws IOException {
-        int value = 0;
-        int position = 0;
-        byte currentByte;
+        int numRead = 0;
+        int result = 0;
+        byte read;
+        do {
+            read = (byte) byteSupplier.getByte();
+            final int value = (read & 0b01111111);
+            result |= (value << (7 * numRead));
 
-        while (true) {
-            currentByte = (byte) byteSupplier.getByte();
-            value |= (currentByte & SEGMENT_BITS) << position;
+            numRead++;
+            if (numRead > 5) throw new IllegalArgumentException("VarInt is too big");
+        } while ((read & 0b10000000) != 0);
 
-            if ((currentByte & CONTINUE_BIT) == 0) break;
-
-            position += 7;
-
-            if (position >= 32) throw new RuntimeException("VarInt is too big");
-        }
-
-        return value;
+        return result;
     }
 
     /** Flexible implementation of writeVarInt() for any byte stream-like destination */
     public static int writeVarInt(IOByteConsumer consumer, int value) throws IOException {
-        int bytes = 0;
-        while (true) {
-            if ((value & ~SEGMENT_BITS) == 0) {
-                consumer.acceptByte(value);
-                bytes++;
-                return bytes;
+        int written = 0;
+        do {
+            byte temp = (byte) (value & 0b01111111);
+            value >>>= 7;
+            if (value != 0) {
+                temp |= 0b10000000;
             }
 
-            consumer.acceptByte((value & SEGMENT_BITS) | CONTINUE_BIT);
-
-            bytes++;
-            value >>>= 7;
-        }
+            consumer.acceptByte(temp);
+            written++;
+        } while (value != 0);
+        return written;
     }
 
     /** Writes the given value as a VarInt directly to the given byte array. */
@@ -103,7 +99,14 @@ public class ProtocolIO {
     }
 
     public static int readVarIntFromStream(InputStream stream) throws IOException {
-        return readVarInt(stream::read);
+        return readVarInt(() -> {
+            int r = stream.read();
+            if (r == -1) {
+                throw new IllegalArgumentException("Unexpected end of stream while reading var int");
+            }
+
+            return r;
+        });
     }
 
     /** Pack the given position into 64 bits. */

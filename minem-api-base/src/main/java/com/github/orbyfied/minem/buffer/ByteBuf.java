@@ -257,7 +257,7 @@ public class ByteBuf {
             byte[] buffer = new byte[bufSize];
             long addr = getAddressOfObject(buffer) + BASE_OFF_BYTE_ARRAY;
             while (read <= len) {
-                int remaining = capacity - offset;
+                int remaining = remainingReadCapacity();
                 if (remaining < 0) {
                     throw new IllegalStateException("No read capacity remaining");
                 }
