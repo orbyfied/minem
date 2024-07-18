@@ -47,7 +47,7 @@ public class ByteBuf {
         Memory.CLEANER.register(this, this::free);
     }
 
-    public void clear() {
+    public void reset() {
         writeIndex = 0;
         readIndex = 0;
     }
@@ -56,6 +56,8 @@ public class ByteBuf {
         System.out.println("Buffer(" + Integer.toHexString(System.identityHashCode(this)) + ") free() called");
         if (ptr != 0) {
             UNSAFE.freeMemory(ptr);
+            ptr = 0;
+            capacity = 0;
         }
     }
 
@@ -170,9 +172,9 @@ public class ByteBuf {
     public void writeBoolean(boolean val) { ensureWriteCapacity(1); setBoolean(writeIndex, val); advWriter(1); }
 
     public void getBytes(int offset, byte[] bytes, int destOff, int len) {
-        if (offset + len >= capacity)
+        if (offset + len > capacity)
             throw new IllegalArgumentException("offset + len > capacity, out of buffer bounds");
-        if (destOff + len >= bytes.length)
+        if (destOff + len > bytes.length)
             throw new IllegalArgumentException("destOff + len > destLen, out of array bounds");
         UNSAFE.copyMemory(ptr + offset, getAddressOfObject(bytes) + BASE_OFF_BYTE_ARRAY + destOff, len);
     }
@@ -439,6 +441,16 @@ public class ByteBuf {
         Object[] helperArray = new Object[1];
         helperArray[0] = obj;
         return UNSAFE.getLong(helperArray, BASE_OFF_OBJ_ARRAY);
+    }
+
+    @Override
+    public String toString() {
+        return "ByteBuf(" +
+                "readIndex=" + readIndex +
+                ", writeIndex=" + writeIndex +
+                ", capacity=" + capacity +
+                ", ptr=" + ptr +
+                ')';
     }
 
 }

@@ -33,6 +33,7 @@ public class Packet {
      */
     public static int CANCEL = 1 << 3;
 
+    int protocolVersion;     // The protocol version
     int networkId;           // The read/written numeric ID of the packet
     ProtocolPhase phase;     // The phase the packet was created/read in
     int flags;               // The base flags for the packet

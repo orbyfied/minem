@@ -1,9 +1,12 @@
 package com.github.orbyfied.minem.security;
 
+import lombok.Getter;
+
 /**
  * Represents a special type of secret, a token, which is always a string
  * and has an expiry time.
  */
+@Getter
 public class Token extends Secret<String> {
 
     long timeObtained;

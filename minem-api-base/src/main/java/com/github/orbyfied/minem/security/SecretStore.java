@@ -12,8 +12,8 @@ public class SecretStore {
     final Map<String, Secret<?>> secretMap = new ConcurrentHashMap<>();
 
     @SuppressWarnings("unchecked")
-    public <T> Secret<T> getSecret(String name) {
-        return (Secret<T>) secretMap.computeIfAbsent(name.toLowerCase(), __ -> new Secret<>(name));
+    public <T, S extends Secret<T>> S getSecret(String name) {
+        return (S) secretMap.computeIfAbsent(name.toLowerCase(), __ -> new Secret<>(name));
     }
 
     @SuppressWarnings("unchecked")

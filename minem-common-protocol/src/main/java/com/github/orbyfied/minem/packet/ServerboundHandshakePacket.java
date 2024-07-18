@@ -24,6 +24,7 @@ public class ServerboundHandshakePacket implements PacketData {
     public void read(Packet container, ByteBuf in) {
         protocolVersion = in.readVarInt();
         address = in.readString();
+        port = in.readShort();
         nextState = NextState.values()[in.readVarInt() - 1];
     }
 
@@ -31,17 +32,24 @@ public class ServerboundHandshakePacket implements PacketData {
     public void write(Packet container, ByteBuf out) {
         out.writeVarInt(protocolVersion);
         out.writeString(address);
-        out.writeVarInt(nextState.ordinal() + 1);
+        out.writeShort(port);
+        out.writeVarInt(nextState.getValue());
     }
 
+    @RequiredArgsConstructor
+    @Getter
     public enum NextState {
-        STATUS,  // Check the server status after handshake
-        LOGIN,   // Login after handshake
-        TRANSFER // idk
+        STATUS(1),  // Check the server status after handshake
+        LOGIN(2),   // Login after handshake
+        TRANSFER(3) // idk
+
+        ;
+        final int value;
     }
 
     int protocolVersion; // The protocol version
     String address;      // The address used to join
+    short port;          // The port used to join
     NextState nextState; // The next protocol state
 
 }

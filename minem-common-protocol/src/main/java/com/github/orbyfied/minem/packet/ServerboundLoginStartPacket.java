@@ -28,13 +28,17 @@ public class ServerboundLoginStartPacket implements PacketData {
     @Override
     public void read(Packet container, ByteBuf in) throws Exception {
         username = in.readString();
-        uuid = in.readUUID();
+        if (container.getProtocolVersion() > 47) {
+            uuid = in.readUUID();
+        }
     }
 
     @Override
     public void write(Packet container, ByteBuf out) throws Exception {
         out.writeString(username);
-        out.writeUUID(uuid);
+        if (container.getProtocolVersion() > 47) {
+            out.writeUUID(uuid);
+        }
     }
 
 }

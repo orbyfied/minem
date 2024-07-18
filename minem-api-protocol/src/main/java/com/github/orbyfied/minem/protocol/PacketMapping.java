@@ -70,6 +70,7 @@ public class PacketMapping {
             packet.networkId = this.networkId;
             packet.phase = this.phase;
             packet.mapping = this;
+            packet.protocolVersion = context.getProtocol().getProtocolNumber();
             return packet;
         } catch (Throwable t) {
             Throwables.sneakyThrow(t);
