@@ -2,6 +2,7 @@ package com.github.orbyfied.minem.io;
 
 import com.github.orbyfied.minem.math.Vec3i;
 
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

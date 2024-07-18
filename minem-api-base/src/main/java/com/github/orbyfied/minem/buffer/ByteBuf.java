@@ -437,10 +437,10 @@ public class ByteBuf {
     static final long BASE_OFF_BYTE_ARRAY = UNSAFE.arrayBaseOffset(byte[].class);
     static final long BASE_OFF_OBJ_ARRAY = UNSAFE.arrayBaseOffset(Object[].class);
 
-    public long getAddressOfObject(Object obj) {
-        Object[] helperArray = new Object[1];
-        helperArray[0] = obj;
-        return UNSAFE.getLong(helperArray, BASE_OFF_OBJ_ARRAY);
+    // THE VARARGS ARRAY IS SUPPOSED TO BE OF LENGTH 1
+    // CONTAINING ONLY THE OBJECT YOU WANT THE ADDRESS OF
+    public long getAddressOfObject(Object... obj) {
+        return UNSAFE.getLong(obj, BASE_OFF_OBJ_ARRAY);
     }
 
     @Override
