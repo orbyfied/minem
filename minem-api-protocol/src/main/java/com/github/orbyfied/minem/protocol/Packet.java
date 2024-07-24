@@ -33,16 +33,21 @@ public class Packet {
      */
     public static int CANCEL = 1 << 3;
 
-    int protocolVersion;     // The protocol version
-    int networkId;           // The read/written numeric ID of the packet
-    ProtocolPhase phase;     // The phase the packet was created/read in
-    int flags;               // The base flags for the packet
+    int protocolVersion;         // The protocol version
+    public int networkId;        // The read/written numeric ID of the packet
+    public ProtocolPhase phase;  // The phase the packet was created/read in
+    int flags;                   // The base flags for the packet
 
-    ProtocolContext context; // The context of this packet
-    PacketSource source;     // The source of the packet, or constructed if null
-    PacketMapping mapping;   // The packet mapping
+    ProtocolContext context;     // The context of this packet
+    PacketSource source;         // The source of the packet, or constructed if null
+    PacketMapping mapping;       // The packet mapping
 
-    Object data;             // The deserialized data of the packet
+    Object data;                 // The deserialized data of the packet
+
+    public Packet source(PacketSource source) {
+        this.source = source;
+        return this;
+    }
 
     public boolean isConstructed() {
         return source == null;
@@ -71,6 +76,12 @@ public class Packet {
         return this;
     }
 
+    public Packet cancel(boolean b) {
+        if (b) set(CANCEL);
+        else clear(CANCEL);
+        return this;
+    }
+
     public Context context() {
         return context;
     }
@@ -90,11 +101,15 @@ public class Packet {
 
     @SuppressWarnings("unchecked")
     public <D> D data(Class<D> cClass) {
-        if (!cClass.isInstance(context)) {
+        if (!cClass.isInstance(data)) {
             throw new IllegalStateException("Expected packet data of type " + cClass.getName());
         }
 
         return (D) data;
+    }
+
+    public boolean isUnknown() {
+        return data instanceof UnknownPacket;
     }
 
 }

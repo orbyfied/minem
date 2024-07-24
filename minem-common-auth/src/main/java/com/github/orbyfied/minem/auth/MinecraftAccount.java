@@ -47,8 +47,6 @@ public class MinecraftAccount extends SecretStore {
     private int activeSkin;
     private int activeCape;
 
-    private boolean debugMode = true;
-
     /**
      * Check whether this account is fully authenticated.
      * (Has a valid Mojang bearer token)
@@ -97,7 +95,7 @@ public class MinecraftAccount extends SecretStore {
                 payload.add("Properties", props);
                 payloadStr = GSON.toJson(payload);
 
-                HttpResponse<String> response2 = verifyResponse(httpClient.send(HttpRequest.newBuilder()
+                HttpResponse<String> response2 = context.verifyResponse(httpClient.send(HttpRequest.newBuilder()
                         .uri(new URI("https://user.auth.xboxlive.com/user/authenticate"))
                         .POST(HttpRequest.BodyPublishers.ofString(payloadStr))
                         .header("Content-Type", "application/json")
@@ -123,7 +121,7 @@ public class MinecraftAccount extends SecretStore {
                 payload.addProperty("TokenType", "JWT");
                 payloadStr = GSON.toJson(payload);
 
-                HttpResponse<String> response3 = verifyResponse(httpClient.send(HttpRequest.newBuilder()
+                HttpResponse<String> response3 = context.verifyResponse(httpClient.send(HttpRequest.newBuilder()
                         .uri(new URI("https://xsts.auth.xboxlive.com/xsts/authorize"))
                         .POST(HttpRequest.BodyPublishers.ofString(payloadStr))
                         .build(), HttpResponse.BodyHandlers.ofString()));
@@ -137,7 +135,7 @@ public class MinecraftAccount extends SecretStore {
                 payload = new JsonObject();
                 payload.addProperty("identityToken", "XBL3.0 x=" + uhs + ";" + xstsToken);
                 payloadStr = GSON.toJson(payload);
-                HttpResponse<String> response4 = verifyResponse(httpClient.send(HttpRequest.newBuilder()
+                HttpResponse<String> response4 = context.verifyResponse(httpClient.send(HttpRequest.newBuilder()
                         .uri(new URI("https://api.minecraftservices.com/authentication/login_with_xbox"))
                         .POST(HttpRequest.BodyPublishers.ofString(payloadStr))
                         .header("User-Agent", USER_AGENT)
@@ -170,7 +168,7 @@ public class MinecraftAccount extends SecretStore {
                 String password = getSecretValue("Password");
 
                 // step 1: extract SFT
-                String sftStr = verifyResponse(httpClient.send(HttpRequest.newBuilder()
+                String sftStr = context.verifyResponse(httpClient.send(HttpRequest.newBuilder()
                         .uri(URI.create("https://login.live.com/oauth20_authorize.srf?client_id=" + CLIENT_ID + "&redirect_uri=https://login.live.com/oauth20_desktop.srf&scope=service::user.auth.xboxlive.com::MBI_SSL&response_type=token&locale=en"))
                         .header("User-Agent", USER_AGENT)
                         .GET()
@@ -202,7 +200,7 @@ public class MinecraftAccount extends SecretStore {
                 store.add(uriPost, new HttpCookie("context_id", contextId));
 
                 body = "login=" + emailEncoded + "&loginfmt=" + emailEncoded + "&passwd=" + passwordEncoded + "&PPFT=" + sftValueEncoded;
-                HttpResponse<String> response1 = verifyResponse(httpClient.send(HttpRequest.newBuilder()
+                HttpResponse<String> response1 = context.verifyResponse(httpClient.send(HttpRequest.newBuilder()
                         .uri(uriPost)
                         .POST(HttpRequest.BodyPublishers.ofString(body))
                         .header("User-Agent", USER_AGENT)
@@ -249,9 +247,9 @@ public class MinecraftAccount extends SecretStore {
     public synchronized CompletableFuture<MinecraftAccount> fetchProfile(AccountContext context) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                HttpResponse<String> response = context.getHttpClient().send(authorize(HttpRequest.newBuilder()
+                HttpResponse<String> response = context.verifyResponse(context.getHttpClient().send(authorize(HttpRequest.newBuilder()
                         .uri(new URI("https://api.minecraftservices.com/minecraft/profile"))
-                        .GET()).build(), HttpResponse.BodyHandlers.ofString());
+                        .GET()).build(), HttpResponse.BodyHandlers.ofString()));
                 JsonObject infoObject = GSON.fromJson(response.body(), JsonObject.class);
 
                 String uuidWithoutDashses = infoObject.get("id").getAsString();
@@ -336,24 +334,6 @@ public class MinecraftAccount extends SecretStore {
         } catch (Throwable t) {
             throw new IllegalArgumentException("Failed to create HttpClient", t);
         }
-    }
-
-    // verify and log the given response
-    private <T> HttpResponse<T> verifyResponse(HttpResponse<T> response) {
-        if (debugMode) {
-            System.out.println(ANSI.CYAN + "[*] Received Response :" + response.statusCode() + " to " + response.uri() + ANSI.RESET);
-            HttpUtil.trace(response);
-            String body = response.body().toString();
-            final int maxBodyLen = 750;
-            if (body.length() > maxBodyLen) body = body.substring(0, maxBodyLen).replace("\n", "");
-            System.out.println(ANSI.BLUE + "        Body: " + ANSI.GRAY + body + ANSI.RESET);
-        }
-
-        if (response.statusCode() < 200 || response.statusCode() > 300) {
-            throw new IllegalStateException("Http request failed: to URL " + response.uri() + " got: code " + response.statusCode());
-        }
-
-        return response;
     }
 
 }

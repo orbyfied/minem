@@ -14,11 +14,11 @@ public interface PacketRegistry {
     }
 
     default PacketMapping getClientboundPacketMapping(int networkID) {
-        return getPacketMapping(networkID * 2 + 1);
+        return getPacketMapping(networkID * 2 + Destination.CLIENTBOUND.getIdX2Offset());
     }
 
     default PacketMapping getServerboundPacketMapping(int networkID) {
-        return getPacketMapping(networkID * 2);
+        return getPacketMapping(networkID * 2 + Destination.SERVERBOUND.getIdX2Offset());
     }
 
     /**

@@ -8,15 +8,16 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.lang.ref.Cleaner;
-import java.lang.ref.PhantomReference;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.UUID;
 
 /**
  * Protocol friendly dynamic sized byte buffer.
+ *
+ * SMALL WARNING: the memory is currently not deallocated when the object is collected
  */
 public class ByteBuf {
 
@@ -47,13 +48,17 @@ public class ByteBuf {
         Memory.CLEANER.register(this, this::free);
     }
 
+    @Override
+    protected void finalize() throws Throwable {
+        free();
+    }
+
     public void reset() {
         writeIndex = 0;
         readIndex = 0;
     }
 
     public void free() {
-        System.out.println("Buffer(" + Integer.toHexString(System.identityHashCode(this)) + ") free() called");
         if (ptr != 0) {
             UNSAFE.freeMemory(ptr);
             ptr = 0;
@@ -72,8 +77,8 @@ public class ByteBuf {
             UNSAFE.copyMemory(ptr, newPtr, this.capacity);
         }
 
-        System.out.println("Buffer(" + Long.toHexString(System.identityHashCode(this)) + ") reallocated from 0x" + Long.toHexString(ptr) + " [" + this.capacity + "] to 0x" +
-                Long.toHexString(newPtr) + " [" + capacity + "]");
+//        System.out.println("Buffer(" + Long.toHexString(System.identityHashCode(this)) + ") reallocated from 0x" + Long.toHexString(ptr) + " [" + this.capacity + "] to 0x" +
+//                Long.toHexString(newPtr) + " [" + capacity + "]");
 
         this.capacity = capacity;
         this.ptr = newPtr;
@@ -176,7 +181,7 @@ public class ByteBuf {
             throw new IllegalArgumentException("offset + len > capacity, out of buffer bounds");
         if (destOff + len > bytes.length)
             throw new IllegalArgumentException("destOff + len > destLen, out of array bounds");
-        UNSAFE.copyMemory(ptr + offset, getAddressOfObject(bytes) + BASE_OFF_BYTE_ARRAY + destOff, len);
+        UNSAFE.copyMemory(ptr + offset, getAddressOfObject((Object) bytes) + BASE_OFF_BYTE_ARRAY + destOff, len);
     }
 
     public void getBytes(int offset, long address, int destOff, int len) {
@@ -194,7 +199,7 @@ public class ByteBuf {
             throw new IllegalArgumentException("offset + len > capacity, out of buffer bounds");
         if (srcOff + len > bytes.length)
             throw new IllegalArgumentException("srcOff + len > destLen, out of array bounds");
-        UNSAFE.copyMemory(getAddressOfObject(bytes) + BASE_OFF_BYTE_ARRAY + srcOff, ptr + offset, len);
+        UNSAFE.copyMemory(getAddressOfObject((Object) bytes) + BASE_OFF_BYTE_ARRAY + srcOff, ptr + offset, len);
     }
 
     public void setBytes(int offset, long address, int srcOff, int len) {
@@ -211,19 +216,18 @@ public class ByteBuf {
 
     public int setFrom(InputStream stream, int len, int offset) {
         try {
-            int read = 0;
+            int remaining = len;
             byte[] buffer = new byte[bufSize];
             long addr = getAddressOfObject(buffer) + BASE_OFF_BYTE_ARRAY;
-            while (read <= len) {
-                int r = stream.read(buffer, 0, Math.min(len - read, bufSize));
-                read += r;
-                System.out.println("Read bytes: " + read + ", TmpBuffer: " + Arrays.toString(buffer));
+            while (remaining > 0) {
+                int r = stream.read(buffer, 0, Math.min(remaining, bufSize));
+                remaining -= r;
 
                 setBytes(offset, addr, 0, r);
                 offset += r;
             }
 
-            return read;
+            return len - remaining;
         } catch (Exception ex) {
             Throwables.sneakyThrow(ex);
             return 0;
@@ -232,19 +236,19 @@ public class ByteBuf {
 
     public int writeFrom(InputStream stream, int len) {
         try {
-            int read = 0;
+            int remaining = len;
             byte[] buffer = new byte[bufSize];
-            long addr = getAddressOfObject(buffer) + BASE_OFF_BYTE_ARRAY;
-            while (read <= len) {
-                int r = stream.read(buffer, 0, Math.min(len - read, bufSize));
-                read += r;
+            long addr = getAddressOfObject((Object) buffer) + BASE_OFF_BYTE_ARRAY;
+            while (remaining > 0) {
+                int r = stream.read(buffer, 0, Math.min(remaining, bufSize));
+                remaining -= r;
 
                 ensureWriteCapacity(r);
                 setBytes(writeIndex, addr, 0, r);
                 writeIndex += r;
             }
 
-            return read;
+            return len - remaining;
         } catch (Exception ex) {
             Throwables.sneakyThrow(ex);
             return 0;
@@ -253,24 +257,19 @@ public class ByteBuf {
 
     public int getTo(OutputStream stream, int len, int offset) {
         try {
-            int read = 0;
+            int remaining = Math.min(capacity - offset, len);
             byte[] buffer = new byte[bufSize];
-            long addr = getAddressOfObject(buffer) + BASE_OFF_BYTE_ARRAY;
-            while (read <= len) {
-                int remaining = remainingReadCapacity();
-                if (remaining < 0) {
-                    throw new IllegalStateException("No read capacity remaining");
-                }
-
+            long addr = getAddressOfObject((Object) buffer) + BASE_OFF_BYTE_ARRAY;
+            while (remaining > 0) {
                 int r = Math.min(remaining, bufSize);
                 getBytes(offset, addr, 0, r);
-                stream.write(buffer);
+                stream.write(buffer, 0, r);
 
-                read += r;
+                remaining -= r;
                 offset += r;
             }
 
-            return read;
+            return len - remaining;
         } catch (Exception ex) {
             Throwables.sneakyThrow(ex);
             return 0;
@@ -399,6 +398,12 @@ public class ByteBuf {
         advWriter(bytes.length);
     }
 
+    public void writeBytes(byte[] bytes, int off, int len) {
+        ensureWriteCapacity(len);
+        setBytes(writeIndex, bytes, off, len);
+        advWriter(len);
+    }
+
     public int capacity() {
         return capacity;
     }
@@ -426,8 +431,12 @@ public class ByteBuf {
     }
 
     public ByteBuffer nioReference() {
+        return nioReference(0, capacity);
+    }
+
+    public ByteBuffer nioReference(int offset, int length) {
         try {
-            return (ByteBuffer) constructorDirectNIOBuffer.invoke(this.ptr, this.capacity);
+            return (ByteBuffer) constructorDirectNIOBuffer.invoke(this.ptr + offset, length);
         } catch (Throwable t) {
             Throwables.sneakyThrow(t);
             throw new AssertionError();

@@ -4,4 +4,6 @@ include 'minem-api-base'
 include 'minem-common-client'
 include 'minem-common-protocol'
 include 'minem-common-auth'
+include 'minem-api-data'
+include 'minem-impl-protocol47'
 

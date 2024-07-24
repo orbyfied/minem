@@ -1,4 +1,4 @@
-package com.github.orbyfied.minem.packet;
+package com.github.orbyfied.minem.protocol.login;
 
 import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;

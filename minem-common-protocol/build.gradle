@@ -6,4 +6,5 @@ plugins {
 dependencies {
     api project(":minem-api-base")
     api project(":minem-api-protocol")
+    api project(":minem-api-data")
 }

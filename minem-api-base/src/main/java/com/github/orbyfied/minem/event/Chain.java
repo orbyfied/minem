@@ -51,6 +51,11 @@ public class Chain<F> {
      */
     private F invoker;
 
+    /**
+     * The awaitable lock.
+     */
+    private Object lock;
+
     public Chain(Class<F> fClass) {
         this.fClass = fClass;
     }
@@ -66,8 +71,29 @@ public class Chain<F> {
                 () -> handlers,
                 fClass,
                 accumulatorSupplier != null ? (Supplier<Object>) accumulatorSupplier : () -> null,
-                returnAccumulator != null ? (ReturnAccumulator<Object, Object>) returnAccumulator : (__, obj) -> obj
+                returnAccumulator != null ? (ReturnAccumulator<Object, Object>) returnAccumulator : (__, obj) -> obj,
+                () -> this.lock
         );
+    }
+
+    public synchronized Object lock() {
+        if (lock == null) {
+            lock = new Object();
+        }
+
+        return lock;
+    }
+
+    public void await() throws InterruptedException {
+        synchronized (lock()) {
+            lock.wait();
+        }
+    }
+
+    public void await(long timeoutMillis) throws InterruptedException {
+        synchronized (lock()) {
+            lock.wait(timeoutMillis);
+        }
     }
 
     /**

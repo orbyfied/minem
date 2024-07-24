@@ -7,7 +7,10 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public enum Destination {
 
-    FIND(-1),
+    /** This should never be set on a packet. This is used exclusively to represent
+     *  the default value in the {@link Mapping} annotation. */
+    FIND(-Integer.MAX_VALUE),
+
     SERVERBOUND(0),
     CLIENTBOUND(1)
 

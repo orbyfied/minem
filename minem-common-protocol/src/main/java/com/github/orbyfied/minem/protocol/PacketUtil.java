@@ -1,11 +1,14 @@
-package com.github.orbyfied.minem.packet;
-
-import com.github.orbyfied.minem.protocol.PacketMapping;
-
-import java.util.List;
+package com.github.orbyfied.minem.protocol;
 
 public class PacketUtil {
 
+    /**
+     * Compile all given packet mapping classes into packet mapping objects
+     * which may be registered.
+     *
+     * @param classes The classes to compile.
+     * @return The mappings.
+     */
     public static PacketMapping[] compileAll(Class<?>[] classes) {
         PacketMapping[] mappings = new PacketMapping[classes.length];
         for (int i = 0; i < classes.length; i++) {

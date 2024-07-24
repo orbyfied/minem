@@ -1,14 +1,22 @@
 package client;
 
-import com.github.orbyfied.minem.ClientAuthenticator;
+import com.github.orbyfied.minem.ClientState;
+import com.github.orbyfied.minem.component.ClientAuthenticator;
 import com.github.orbyfied.minem.MinecraftClient;
 import com.github.orbyfied.minem.auth.AccountContext;
 import com.github.orbyfied.minem.auth.MinecraftAccount;
+import com.github.orbyfied.minem.component.ClientChatHandler;
 import com.github.orbyfied.minem.io.ProtocolIO;
-import com.github.orbyfied.minem.packet.CommonPacketImplementations;
+import com.github.orbyfied.minem.protocol.CommonPacketImplementations;
 import com.github.orbyfied.minem.protocol.Protocol;
+import com.github.orbyfied.minem.protocol.ProtocolPhases;
+import com.github.orbyfied.minem.protocol47.Protocol47;
 import com.github.orbyfied.minem.security.Token;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.ansi.ANSIComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.junit.jupiter.api.Test;
+import slatepowered.veru.misc.ANSI;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -18,8 +26,9 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Idk {
 
@@ -28,7 +37,6 @@ public class Idk {
         Properties properties = new Properties();
         final String secrets = "../secrets.properties";
         properties.load(new FileReader(secrets));
-        System.out.println("Logging into account");
 
         AccountContext accountContext = AccountContext.create();
         MinecraftAccount account = new MinecraftAccount();
@@ -39,8 +47,8 @@ public class Idk {
             ) {
                 account.storeToken("MojangBearer", URLDecoder.decode(properties.getProperty("mcbearertoken"),
                         StandardCharsets.UTF_8), 100000000);
-                System.out.println("Found existing valid MojangBearer token");
             } else {
+                System.out.println("Need to reauth");
                 account.storeStringSecret("Email", properties.getProperty("email"));
                 account.storeStringSecret("Password", properties.getProperty("password"));
                 account.loginMSA(accountContext).join();
@@ -50,34 +58,90 @@ public class Idk {
                 properties.setProperty("mcbearertoken", URLEncoder.encode(token.getValue(), StandardCharsets.UTF_8));
                 properties.setProperty("mcbearerexpiry", String.valueOf(token.getDuration() + token.getTimeObtained()));
                 properties.store(new FileWriter(secrets), null);
-                System.out.println("Logged into account");
             }
         }
 
-        System.out.println("Fetching profile");
         account.fetchProfile(accountContext).join();
-        System.out.println("Fetched profile: [name = " + account.getProfileName() + ", uuid = " + account.getProfileUUID() + "]");
+        System.out.println("[*] Profile: [name = " + account.getProfileName() + ", uuid = " + account.getProfileUUID() + "]");
 
         MinecraftClient client = new MinecraftClient()
                 .executor(Executors.newFixedThreadPool(2))
-                .protocol(Protocol.create(47)
-                        .registerPacketMappings(CommonPacketImplementations.MAPPINGS)
-                )
-                .with(new ClientAuthenticator().account(account).accountContext(accountContext));
+                .protocol(Protocol47.PROTOCOL)
+                .with(new ClientAuthenticator().account(account).accountContext(accountContext))
+                .with(new ClientChatHandler());
 
-        client.onPacket().addLast(packet -> {
-            System.out.println("Packet NID 0x" + Integer.toHexString(packet.getNetworkId()) + ", DataType: " + packet.data().getClass().getSimpleName() + ", Data: " + packet.data());
+        AtomicInteger totalUnknownReceived = new AtomicInteger(0);
+        Map<Integer, Integer> receivedIdCount = new HashMap<>();
+        Set<Integer> unknownReceivedIds = new HashSet<>();
+
+        client.onStateSwitch().addFirst((oldState, newState) -> {
+            System.out.println("[!!] Client state switched " + oldState + " -> " + newState);
+        });
+
+        client.find(ClientAuthenticator.class).onLoginComplete().addFirst((client1, authenticator, acknowledgedPacket) -> {
+            System.out.println("[OK] Login completed");
+        });
+
+        client.find(ClientChatHandler.class).onChatReceived().addLast((handler, message, type) -> {
+            System.out.println("[CH] " + ANSIComponentSerializer.ansi().serialize(message));
+        });
+
+        client.onPacketReceived().addFirst(packet -> {
+            if (packet.getPhase() == ProtocolPhases.PLAY) receivedIdCount.put(packet.getNetworkId(), receivedIdCount.getOrDefault(packet.getNetworkId(), 0) + 1);
+
+            if (packet.isUnknown()) {
+                if (packet.getPhase() == ProtocolPhases.PLAY) unknownReceivedIds.add(packet.getNetworkId());
+                totalUnknownReceived.incrementAndGet();
+                return 0;
+            }
+
+            System.out.println("[<-] Received Packet NID 0x" + Integer.toHexString(packet.getNetworkId()) + ", DataType: " + packet.data().getClass().getSimpleName() + ", Data: " + packet.data());
             return 0;
         });
 
-        System.out.println("Created client, connecting");
-        client.connect(new InetSocketAddress("mc.hypixel.net", 25565)).join();
-
-        client.find(ClientAuthenticator.class).onLoginComplete().addLast((client1, authenticator, acknowledgedPacket) -> {
-            System.out.println("Login completed (handler called)");
+        client.onPacketSink().addFirst(packet -> {
+            System.out.println("[->] Sent Packet NID 0x" + Integer.toHexString(packet.getNetworkId()) + ", DataType: " + packet.data().getClass().getSimpleName() + ", Data: " + packet.data());
+            return 0;
         });
 
-        while (client.isOpen());
+        client.onDisconnect().addLast((client1, reason, details) -> {
+            System.out.println("[DC] Disconnected for reason " + reason);
+            if (details instanceof Throwable throwable) {
+                throwable.printStackTrace();
+            } else if (details instanceof Component component) {
+                System.out.println("   Details: " + ANSI.YELLOW + PlainTextComponentSerializer.plainText().serialize(component) + ANSI.RESET);
+            } else {
+                System.out.println("   Details: " + ANSI.CYAN + details + ANSI.RESET);
+            }
+        });
+
+        System.out.print("\n\n");
+        long t1 = System.currentTimeMillis();
+        client.connect(new InetSocketAddress("mc.hypixel.net", 25565)).join();
+        long t2 = System.currentTimeMillis();
+
+        client.onDisconnect().await(15 * 1000); // let it run for 15 seconds
+        client.disconnect(MinecraftClient.DisconnectReason.FORCE, null);
+        long t3 = System.currentTimeMillis();
+
+        // send diagnostics
+        try { Thread.sleep(100); } catch (InterruptedException ignored) { }
+        System.out.println("");
+        System.out.println(ANSI.YELLOW + "-------- DIAGNOSTICS -----------------------------------------");
+        System.out.print("Most Received [PLAY] (red = unknown): ");
+        receivedIdCount.entrySet()
+                .stream()
+                .sorted(Comparator.<Map.Entry<Integer, Integer>>comparingInt(Map.Entry::getValue).reversed())
+                .forEachOrdered(integerIntegerEntry -> {
+                    System.out.print((unknownReceivedIds.contains(integerIntegerEntry.getKey()) ? ANSI.RED : ANSI.GREEN) +
+                            "0x" + Integer.toHexString(integerIntegerEntry.getKey()) + ": " + integerIntegerEntry.getValue() + ANSI.RESET + ", ");
+                });
+        System.out.println();
+        System.out.println("Total Unknown Received: " + totalUnknownReceived.get());
+        System.out.println("Connected for: " + (t3 - t2) + "ms");
+        System.out.println("Time to connect: " + (t2 - t1) + "ms");
+        System.out.println();
+        System.out.println();
     }
 
     @Test

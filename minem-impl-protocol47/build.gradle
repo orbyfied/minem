@@ -8,7 +8,4 @@ dependencies {
     api project(":minem-api-protocol")
     api project(":minem-api-data")
     api project(":minem-common-protocol")
-    api project(":minem-common-auth")
-
-    testImplementation project(":minem-impl-protocol47")
 }

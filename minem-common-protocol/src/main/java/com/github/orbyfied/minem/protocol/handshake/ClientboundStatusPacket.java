@@ -1,4 +1,4 @@
-package com.github.orbyfied.minem.packet;
+package com.github.orbyfied.minem.protocol.handshake;
 
 import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
@@ -8,28 +8,28 @@ import com.github.orbyfied.minem.buffer.ByteBuf;
 import lombok.*;
 
 /**
- * Common packet implementation: Login-stage disconnect
+ * Common packet implementation: Status
  *
  * https://wiki.vg/Protocol#Status
  */
-@Mapping(id = 0x03, phase = ProtocolPhases.LOGIN, primaryName = "ClientboundSetCompression")
+@Mapping(id = 0x00, phase = ProtocolPhases.STATUS, primaryName = "ClientboundStatus")
 @Getter
 @Setter
 @ToString
 @NoArgsConstructor
 @AllArgsConstructor
-public class ClientboundSetCompressionPacket implements PacketData {
+public class ClientboundStatusPacket implements PacketData {
 
-    int threshold; // The compression threshold to use
+    String json;
 
     @Override
     public void read(Packet container, ByteBuf in) throws Exception {
-        threshold = in.readVarInt();
+        json = in.readString();
     }
 
     @Override
     public void write(Packet container, ByteBuf out) throws Exception {
-        out.writeVarInt(threshold);
+        out.writeString(json);
     }
 
 }

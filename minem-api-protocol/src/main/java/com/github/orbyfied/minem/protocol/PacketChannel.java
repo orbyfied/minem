@@ -14,8 +14,10 @@ public interface PacketChannel {
 
     /**
      * Tries to close this packet channel.
+     *
+     * @return Whether it closed an open channel.
      */
-    void close();
+    boolean close();
 
     /**
      * Event: called when a packet is sent or received.

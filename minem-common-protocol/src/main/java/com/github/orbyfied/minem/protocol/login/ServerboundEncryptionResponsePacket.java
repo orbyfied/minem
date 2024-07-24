@@ -1,4 +1,4 @@
-package com.github.orbyfied.minem.packet;
+package com.github.orbyfied.minem.protocol.login;
 
 import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
@@ -17,30 +17,24 @@ import lombok.*;
 @Getter
 @Setter
 @ToString
-@Mapping(id = 0x01, primaryName = "ClientboundEncryptionRequest", phase = ProtocolPhases.LOGIN)
-public class ClientboundEncryptionRequestPacket implements PacketData {
+@Mapping(id = 0x01, primaryName = "ServerboundEncryptionResponse", phase = ProtocolPhases.LOGIN)
+public class ServerboundEncryptionResponsePacket implements PacketData {
 
-    String serverID;         // The server ID
-    byte[] publicKeyBytes;   // The byte data for the public key
-    byte[] verifyTokenBytes; // The byte data for the verify token
-    boolean shouldAuth;      // Whether to authenticate
+    byte[] sharedSecretBytes; // The bytes of the shared secret encrypted with the public key
+    byte[] verifyTokenBytes;  // The bytes of the received verify token encrypted with the same public key
 
     @Override
     public void read(Packet container, ByteBuf in) throws Exception {
-        serverID = in.readString();
-        publicKeyBytes = in.readBytes(in.readVarInt());
+        sharedSecretBytes = in.readBytes(in.readVarInt());
         verifyTokenBytes = in.readBytes(in.readVarInt());
-        shouldAuth = in.readBoolean();
     }
 
     @Override
     public void write(Packet container, ByteBuf out) throws Exception {
-        out.writeString(serverID);
-        out.writeVarInt(publicKeyBytes.length);
-        out.writeBytes(publicKeyBytes);
+        out.writeVarInt(sharedSecretBytes.length);
+        out.writeBytes(sharedSecretBytes);
         out.writeVarInt(verifyTokenBytes.length);
         out.writeBytes(verifyTokenBytes);
-        out.writeBoolean(shouldAuth);
     }
 
 }

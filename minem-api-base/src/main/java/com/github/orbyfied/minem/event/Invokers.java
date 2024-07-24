@@ -1,6 +1,7 @@
 package com.github.orbyfied.minem.event;
 
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -17,7 +18,8 @@ final class Invokers {
     public static <F> F createDynamicInvoker(Supplier<List<F>> handlerListSupplier,
                                              Class<F> fClass,
                                              Supplier<Object> accumulatorSupplier,
-                                             ReturnAccumulator<Object, Object> returnAccumulator) {
+                                             ReturnAccumulator<Object, Object> returnAccumulator,
+                                             Supplier<Object> lockSupplier) {
         // calculate which methods are
         // handler methods
         final HashSet<Method> handlerMethodSet = new HashSet<>();
@@ -29,19 +31,38 @@ final class Invokers {
 
         // create proxy
         return (F) Proxy.newProxyInstance(Chain.class.getClassLoader(), new Class[] { fClass }, (proxy, method, args) -> {
+            Object current = null;
             try {
                 if (!handlerMethodSet.contains(method)) {
                     return InvocationHandler.invokeDefault(proxy, method, args);
                 }
 
+                // notify lock
+                Object lock = lockSupplier.get();
+                if (lock != null) {
+                    synchronized (lock) {
+                        lock.notifyAll();
+                    }
+                }
+
+                // invoke and update handlers
                 List<Integer> toRemove = new ArrayList<>();
 
-                Object current = accumulatorSupplier.get();
+                current = accumulatorSupplier.get();
                 List<F> handlerList = handlerListSupplier.get();
                 final int length = handlerList.size();
                 for (int i = 0; i < length; i++) {
                     F func = handlerList.get(i);
-                    Object ret = method.invoke(func, args);
+
+                    Object ret;
+                    try {
+                        ret = method.invoke(func, args);
+                    } catch (InvocationTargetException ex) {
+                        throw new EventInvocationException("An error occurred while invoking event handler(index: " + i + ")\n" +
+                                " * method: " + method + "\n" +
+                                " * accumulator: " + current, ex.getCause());
+                    }
+
                     current = returnAccumulator.register(current, ret);
 
                     if (ret instanceof Integer) {
@@ -63,7 +84,7 @@ final class Invokers {
                 return current;
             } catch (Exception e) {
                 e.printStackTrace();
-                return null;
+                return current;
             }
         });
     }
