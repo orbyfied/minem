@@ -2,7 +2,9 @@ package com.github.orbyfied.minem.protocol;
 
 import com.github.orbyfied.minem.reflect.UnsafeFieldDesc;
 import com.github.orbyfied.minem.buffer.ByteBuf;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import slatepowered.veru.misc.Throwables;
 import slatepowered.veru.reflect.UnsafeUtil;
@@ -21,23 +23,24 @@ import java.util.Map;
  * Represents the mapping of a packet type from a universal representation to
  * a version specific implementation.
  */
-@RequiredArgsConstructor
+@AllArgsConstructor
+@NoArgsConstructor
 @Getter
 public class PacketMapping {
 
-    final int registryId;                      // The numerical registry ID of this packet type
-    final int networkId;                       // The ID on the network for this mapping
-    final ProtocolPhase phase;                 // The game phase in which this mapping occurs
-    final int flags;                           // The flags on this mapping, this consists of mapping flags and Packet flags
-    final String primaryName;                  // The primary name of this mapping
-    final String[] aliases;                    // The aliases of this mapping
-    final Class<?> dataClass;                  // The data class of this mapping
-    final MethodHandle constructor;            // The constructor to be used when building packet data
-    final List<Class<?>> dataInterfaces;       // All interfaces/superclasses the data class implements
-    final Map<String, UnsafeFieldDesc> fields; // All compiled fields on the mapping (excludes transient)
-    final Destination destination;             // Where packets are bound
-    final MethodHandle methodDataRead;         // Fast method handle for method `void read(Object data, Packet packet, ByteBuf buf)`
-    final MethodHandle methodDataWrite;        // Fast method handle for method `void write(Object data, Packet packet, ByteBuf buf)`
+    protected int registryId;                      // The numerical registry ID of this packet type
+    protected int networkId;                       // The ID on the network for this mapping
+    protected ProtocolPhase phase;                 // The game phase in which this mapping occurs
+    protected int flags;                           // The flags on this mapping, this consists of mapping flags and Packet flags
+    protected String primaryName;                  // The primary name of this mapping
+    protected String[] aliases;                    // The aliases of this mapping
+    protected Class<?> dataClass;                  // The data class of this mapping
+    protected MethodHandle constructor;            // The constructor to be used when building packet data
+    protected List<Class<?>> dataInterfaces;       // All interfaces/superclasses the data class implements
+    protected Map<String, UnsafeFieldDesc> fields; // All compiled fields on the mapping (excludes transient)
+    protected Destination destination;             // Where packets are bound
+    protected MethodHandle methodDataRead;         // Fast method handle for method `void read(Object data, Packet packet, ByteBuf buf)`
+    protected MethodHandle methodDataWrite;        // Fast method handle for method `void write(Object data, Packet packet, ByteBuf buf)`
 
     public void writePacketData(Packet packet, ByteBuf buf) {
         try {
@@ -136,5 +139,9 @@ public class PacketMapping {
             throw new RuntimeException("Failed to compile mapping " + klass, ex);
         }
     }
+
+    // todo: compile class with static serializer methods but common
+    //  packet data type into a mapping (possible through the read and write
+    //  method handles)
 
 }
