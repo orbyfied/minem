@@ -4,7 +4,7 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import lombok.*;
 
 /**
@@ -21,7 +21,7 @@ import lombok.*;
 public class ServerboundHandshakePacket implements PacketData {
 
     @Override
-    public void read(Packet container, ByteBuf in) {
+    public void read(Packet container, UnsafeByteBuf in) {
         protocolVersion = in.readVarInt();
         address = in.readString();
         port = in.readShort();
@@ -29,7 +29,7 @@ public class ServerboundHandshakePacket implements PacketData {
     }
 
     @Override
-    public void write(Packet container, ByteBuf out) {
+    public void write(Packet container, UnsafeByteBuf out) {
         out.writeVarInt(protocolVersion);
         out.writeString(address);
         out.writeShort(port);

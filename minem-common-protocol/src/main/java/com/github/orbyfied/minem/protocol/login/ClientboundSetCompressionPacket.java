@@ -4,7 +4,7 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import lombok.*;
 
 /**
@@ -23,12 +23,12 @@ public class ClientboundSetCompressionPacket implements PacketData {
     int threshold; // The compression threshold to use
 
     @Override
-    public void read(Packet container, ByteBuf in) throws Exception {
+    public void read(Packet container, UnsafeByteBuf in) throws Exception {
         threshold = in.readVarInt();
     }
 
     @Override
-    public void write(Packet container, ByteBuf out) throws Exception {
+    public void write(Packet container, UnsafeByteBuf out) throws Exception {
         out.writeVarInt(threshold);
     }
 

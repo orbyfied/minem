@@ -3,7 +3,7 @@ package com.github.orbyfied.minem.protocol47;
 import com.github.orbyfied.minem.protocol.CommonPacketImplementations;
 import com.github.orbyfied.minem.protocol.PacketUtil;
 import com.github.orbyfied.minem.protocol.Protocol;
-import com.github.orbyfied.minem.protocol47.play.ClientboundChatMessagePacket;
+import com.github.orbyfied.minem.protocol47.play.ClientboundChatMessagePacket47;
 
 public class Protocol47 {
 
@@ -14,7 +14,7 @@ public class Protocol47 {
 
     // All defined packet classes
     private static final Class<?>[] CLASSES = new Class[] {
-            ClientboundChatMessagePacket.class
+            ClientboundChatMessagePacket47.class
     };
 
     static {

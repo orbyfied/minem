@@ -5,17 +5,14 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 
 /**
  * Represents the current version protocol implementation and registry/factory.
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class Protocol {
+public class Protocol implements PacketRegistry {
 
     public static Protocol create(int protocolNumber) {
         return new Protocol(protocolNumber);
@@ -28,6 +25,11 @@ public class Protocol {
     final int protocolNumber;
 
     /**
+     * All registered phase specs.
+     */
+    List<ProtocolPhaseSpecification> allSpecs = new ArrayList<>();
+
+    /**
      * All phase spec objects by the phase ordinal.
      */
     ProtocolPhaseSpecification[] specsByPhaseOrdinal = new ProtocolPhaseSpecification[0];
@@ -38,6 +40,9 @@ public class Protocol {
     @Getter
     final Chain<PacketHandler> packetHandlers = new Chain<>(PacketHandler.class);
 
+    // The cached key mappings
+    final Map<Object, Set<PacketMapping>> matchCache = new HashMap<>();
+
     public Protocol modifyHandlers(Consumer<Chain<PacketHandler>> consumer) {
         consumer.accept(packetHandlers);
         return this;
@@ -47,15 +52,7 @@ public class Protocol {
      * List all phase mappings implemented by this protocol.
      */
     public List<ProtocolPhaseSpecification> allPhaseSpecs() {
-        List<ProtocolPhaseSpecification> list = new ArrayList<>();
-        for (int i = 0; i < specsByPhaseOrdinal.length; i++) {
-            ProtocolPhaseSpecification mapping = specsByPhaseOrdinal[i];
-            if (mapping != null) {
-                list.add(mapping);
-            }
-        }
-
-        return list;
+        return Collections.unmodifiableList(allSpecs);
     }
 
     /**
@@ -89,6 +86,7 @@ public class Protocol {
             current.merge(spec);
         }
 
+        allSpecs.add(spec);
         return this;
     }
 
@@ -133,6 +131,35 @@ public class Protocol {
         return spec;
     }
 
+    @Override
+    public PacketMapping getPacketMapping(int id) {
+        throw new UnsupportedOperationException("Protocol can not get mapping by registry ID as it may be shared across phases");
+    }
+
+    @Override
+    public PacketMapping getPacketMapping(String name) {
+        for (PacketRegistry registry : allSpecs) {
+            PacketMapping mapping = registry.getPacketMapping(name);
+            if (mapping != null) {
+                return mapping;
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public PacketMapping getPacketMapping(Class<?> klass) {
+        for (PacketRegistry registry : allSpecs) {
+            PacketMapping mapping = registry.getPacketMapping(klass);
+            if (mapping != null) {
+                return mapping;
+            }
+        }
+
+        return null;
+    }
+
     public Protocol registerPacketMapping(PacketMapping mapping) {
         getOrCreatePhaseSpec(mapping.getPhase())
                 .registerPacketMapping(mapping);
@@ -149,6 +176,35 @@ public class Protocol {
 
     public Protocol registerPacketMappings(PacketMapping... mappings) {
         return registerPacketMappings(List.of(mappings));
+    }
+
+    @Override
+    public List<PacketMapping> allPacketMappings() {
+        List<PacketMapping> list = new ArrayList<>();
+        allPacketMappings(list);
+        return list;
+    }
+
+    @Override
+    public void allPacketMappings(List<PacketMapping> list) {
+        for (PacketRegistry registry : allSpecs) {
+            registry.allPacketMappings(list);
+        }
+    }
+
+    @Override
+    public void match(Collection<PacketMapping> list, Object key) {
+        Set<PacketMapping> list1 = matchCache.get(key);
+        if (list1 == null) {
+            list1 = new HashSet<>();
+            for (PacketRegistry registry : allSpecs) {
+                registry.match(list1, key);
+            }
+
+            matchCache.put(key, list1);
+        }
+
+        list.addAll(list1);
     }
 
 }

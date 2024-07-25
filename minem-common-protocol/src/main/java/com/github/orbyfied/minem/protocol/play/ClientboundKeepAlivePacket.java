@@ -1,6 +1,6 @@
 package com.github.orbyfied.minem.protocol.play;
 
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
@@ -23,12 +23,12 @@ public class ClientboundKeepAlivePacket implements PacketData {
     int id; // The ID of the keep-alive transaction
 
     @Override
-    public void read(Packet container, ByteBuf in) throws Exception {
+    public void read(Packet container, UnsafeByteBuf in) throws Exception {
         id = in.readVarInt();
     }
 
     @Override
-    public void write(Packet container, ByteBuf out) throws Exception {
+    public void write(Packet container, UnsafeByteBuf out) throws Exception {
         out.writeVarInt(id);
     }
 

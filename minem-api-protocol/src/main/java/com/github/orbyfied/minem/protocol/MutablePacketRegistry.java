@@ -14,6 +14,8 @@ public class MutablePacketRegistry implements PacketRegistry {
     protected Map<Integer, PacketMapping> mappingsByIdHigh = new HashMap<>();
     /** All mappings by string alias. */
     protected Map<String, PacketMapping> mappingsByAlias = new HashMap<>();
+    /** All mappings by class. */
+    protected Map<Class<?>, PacketMapping> mappingsByClass = new HashMap<>();
 
     @Override
     public PacketMapping getPacketMapping(int id) {
@@ -24,6 +26,11 @@ public class MutablePacketRegistry implements PacketRegistry {
     @Override
     public PacketMapping getPacketMapping(String name) {
         return mappingsByAlias.get(name);
+    }
+
+    @Override
+    public PacketMapping getPacketMapping(Class<?> klass) {
+        return mappingsByAlias.get(klass);
     }
 
     @Override
@@ -50,6 +57,9 @@ public class MutablePacketRegistry implements PacketRegistry {
             mappingsByAlias.put(alias, mapping);
         }
 
+        // append to by class
+        mappingsByClass.put(mapping.getDataClass(), mapping);
+
         return this;
     }
 
@@ -65,6 +75,34 @@ public class MutablePacketRegistry implements PacketRegistry {
     @Override
     public List<PacketMapping> allPacketMappings() {
         return Collections.unmodifiableList(this.mappingList);
+    }
+
+    @Override
+    public void allPacketMappings(List<PacketMapping> list) {
+        list.addAll(this.mappingList);
+    }
+
+    @Override
+    public void match(Collection<PacketMapping> list, Object key) {
+        if (key instanceof String str) {
+            PacketMapping byAlias = mappingsByAlias.get(str);
+            if (byAlias != null) {
+                list.add(byAlias);
+            }
+        } else if (key instanceof Class<?> klass) {
+            PacketMapping byClass = mappingsByClass.get(klass);
+            if (byClass != null) {
+                list.add(byClass);
+                return;
+            }
+
+            // check for data interfaces
+            for (PacketMapping mapping : mappingList) {
+                if (mapping.getDataInterfaces().contains(klass)) {
+                    list.add(mapping);
+                }
+            }
+        }
     }
 
 }

@@ -1,6 +1,6 @@
 package com.github.orbyfied.minem.protocol;
 
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 
 /**
  * Base interface for packet data.
@@ -8,9 +8,9 @@ import com.github.orbyfied.minem.buffer.ByteBuf;
 public interface PacketData {
 
     /** Read the packet data from the given buffer. */
-    void read(Packet container, ByteBuf in) throws Exception;
+    void read(Packet container, UnsafeByteBuf in) throws Exception;
 
     /** Write the packet data to the given buffer. */
-    void write(Packet container, ByteBuf out) throws Exception;
+    void write(Packet container, UnsafeByteBuf out) throws Exception;
 
 }

@@ -1,6 +1,6 @@
 package com.github.orbyfied.minem.protocol.login;
 
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
@@ -29,7 +29,7 @@ public class ClientboundLoginSuccessPacket implements PacketData {
     Map<String, LoginProperty> properties = new HashMap<>();
 
     @Override
-    public void read(Packet container, ByteBuf in) throws Exception {
+    public void read(Packet container, UnsafeByteBuf in) throws Exception {
         uuid = container.getProtocolVersion() <= 47 ? UUID.fromString(in.readString()) : in.readUUID();
         username = in.readString();
 
@@ -47,7 +47,7 @@ public class ClientboundLoginSuccessPacket implements PacketData {
     }
 
     @Override
-    public void write(Packet container, ByteBuf out) throws Exception {
+    public void write(Packet container, UnsafeByteBuf out) throws Exception {
         if (container.getProtocolVersion() <= 47) out.writeString(uuid.toString());
         else out.writeUUID(uuid);
         out.writeString(username);

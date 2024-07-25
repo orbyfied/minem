@@ -1,0 +1,17 @@
+plugins {
+    id 'java'
+    id 'java-library'
+}
+
+dependencies {
+    api project(":minem-api-base")
+    api project(":minem-api-protocol")
+    api project(":minem-api-data")
+    api project(":minem-common-protocol")
+    api project(":minem-common-auth")
+    api project(":minem-common-client")
+    api project(":minem-impl-protocol47")
+
+    compileOnly 'org.yaml:snakeyaml:2.2'
+    testImplementation 'org.yaml:snakeyaml:2.2'
+}

@@ -4,7 +4,7 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import lombok.*;
 
 import java.util.UUID;
@@ -26,7 +26,7 @@ public class ServerboundLoginStartPacket implements PacketData {
     UUID uuid;
 
     @Override
-    public void read(Packet container, ByteBuf in) throws Exception {
+    public void read(Packet container, UnsafeByteBuf in) throws Exception {
         username = in.readString();
         if (container.getProtocolVersion() > 47) {
             uuid = in.readUUID();
@@ -34,7 +34,7 @@ public class ServerboundLoginStartPacket implements PacketData {
     }
 
     @Override
-    public void write(Packet container, ByteBuf out) throws Exception {
+    public void write(Packet container, UnsafeByteBuf out) throws Exception {
         out.writeString(username);
         if (container.getProtocolVersion() > 47) {
             out.writeUUID(uuid);

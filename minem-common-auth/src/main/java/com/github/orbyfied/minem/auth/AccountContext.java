@@ -1,5 +1,6 @@
 package com.github.orbyfied.minem.auth;
 
+import com.github.orbyfied.minem.http.HttpUtil;
 import slatepowered.veru.misc.ANSI;
 
 import java.net.http.HttpClient;

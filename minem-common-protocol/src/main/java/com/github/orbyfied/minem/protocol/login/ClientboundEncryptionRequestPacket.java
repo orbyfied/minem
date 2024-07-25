@@ -4,7 +4,7 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import lombok.*;
 
 /**
@@ -26,7 +26,7 @@ public class ClientboundEncryptionRequestPacket implements PacketData {
     boolean shouldAuth = true; // Whether to authenticate
 
     @Override
-    public void read(Packet container, ByteBuf in) throws Exception {
+    public void read(Packet container, UnsafeByteBuf in) throws Exception {
         serverID = in.readString();
         publicKeyBytes = in.readBytes(in.readVarInt());
         verifyTokenBytes = in.readBytes(in.readVarInt());
@@ -36,7 +36,7 @@ public class ClientboundEncryptionRequestPacket implements PacketData {
     }
 
     @Override
-    public void write(Packet container, ByteBuf out) throws Exception {
+    public void write(Packet container, UnsafeByteBuf out) throws Exception {
         out.writeString(serverID);
         out.writeVarInt(publicKeyBytes.length);
         out.writeBytes(publicKeyBytes);

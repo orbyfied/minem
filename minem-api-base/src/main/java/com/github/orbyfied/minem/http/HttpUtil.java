@@ -1,4 +1,4 @@
-package com.github.orbyfied.minem.auth;
+package com.github.orbyfied.minem.http;
 
 import slatepowered.veru.misc.ANSI;
 import slatepowered.veru.misc.Throwables;
@@ -11,8 +11,13 @@ import java.net.http.HttpResponse;
 import java.util.HashMap;
 import java.util.Map;
 
-final class HttpUtil {
+public final class HttpUtil {
 
+    /**
+     * Print a trace of the given response to the given print stream.
+     *
+     * @param response The response.
+     */
     public static void trace(HttpResponse<?> response) {
         int h = 0;
         for (; response != null; response = response.previousResponse().orElse(null)) {
@@ -20,6 +25,12 @@ final class HttpUtil {
         }
     }
 
+    /**
+     * Parse the query parameters for the given query string.
+     *
+     * @param query The query.
+     * @return The parameter map.
+     */
     public static Map<String, String> getQueryMap(String query) {
         String[] params = query.split("&");
         Map<String, String> map = new HashMap<>();
@@ -32,6 +43,7 @@ final class HttpUtil {
 
         return map;
     }
+
     /**
      * Read the body from the given URL, giving a very bare-bones response.
      *

@@ -12,7 +12,7 @@ public class PacketUtil {
     public static PacketMapping[] compileAll(Class<?>[] classes) {
         PacketMapping[] mappings = new PacketMapping[classes.length];
         for (int i = 0; i < classes.length; i++) {
-            mappings[i] = PacketMapping.compile(classes[i]);
+            mappings[i] = PacketMapping.compileMapping(classes[i]);
         }
 
         return mappings;

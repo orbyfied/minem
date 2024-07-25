@@ -1,4 +1,4 @@
-package client;
+package test.minem.hypixelbot;
 
 import com.github.orbyfied.minem.ClientState;
 import com.github.orbyfied.minem.component.ClientAuthenticator;
@@ -6,7 +6,10 @@ import com.github.orbyfied.minem.MinecraftClient;
 import com.github.orbyfied.minem.auth.AccountContext;
 import com.github.orbyfied.minem.auth.MinecraftAccount;
 import com.github.orbyfied.minem.component.ClientChatHandler;
+import com.github.orbyfied.minem.hypixel.HypixelBot;
+import com.github.orbyfied.minem.hypixel.storage.YAMLHypixelBotStorage;
 import com.github.orbyfied.minem.io.ProtocolIO;
+import com.github.orbyfied.minem.profile.MinecraftProfile;
 import com.github.orbyfied.minem.protocol.CommonPacketImplementations;
 import com.github.orbyfied.minem.protocol.Protocol;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
@@ -15,6 +18,7 @@ import com.github.orbyfied.minem.security.Token;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.ansi.ANSIComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.ansi.ColorLevel;
 import org.junit.jupiter.api.Test;
 import slatepowered.veru.misc.ANSI;
 
@@ -26,11 +30,12 @@ import java.net.InetSocketAddress;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class Idk {
+public class SimpleHypixelChatBotTest {
 
     @Test
     void test() throws Exception {
@@ -82,8 +87,11 @@ public class Idk {
             System.out.println("[OK] Login completed");
         });
 
+        final ANSIComponentSerializer serializer = ANSIComponentSerializer.builder()
+                .colorLevel(ColorLevel.TRUE_COLOR)
+                .build();
         client.find(ClientChatHandler.class).onChatReceived().addLast((handler, message, type) -> {
-            System.out.println("[CH] " + ANSIComponentSerializer.ansi().serialize(message));
+            System.out.println("[CH] " + serializer.serializeOrNull(message));
         });
 
         client.onPacketReceived().addFirst(packet -> {
@@ -95,12 +103,12 @@ public class Idk {
                 return 0;
             }
 
-            System.out.println("[<-] Received Packet NID 0x" + Integer.toHexString(packet.getNetworkId()) + ", DataType: " + packet.data().getClass().getSimpleName() + ", Data: " + packet.data());
+//            System.out.println("[<-] Received Packet NID 0x" + Integer.toHexString(packet.getNetworkId()) + ", DataType: " + packet.data().getClass().getSimpleName() + ", Data: " + packet.data());
             return 0;
         });
 
         client.onPacketSink().addFirst(packet -> {
-            System.out.println("[->] Sent Packet NID 0x" + Integer.toHexString(packet.getNetworkId()) + ", DataType: " + packet.data().getClass().getSimpleName() + ", Data: " + packet.data());
+//            System.out.println("[->] Sent Packet NID 0x" + Integer.toHexString(packet.getNetworkId()) + ", DataType: " + packet.data().getClass().getSimpleName() + ", Data: " + packet.data());
             return 0;
         });
 
@@ -115,12 +123,16 @@ public class Idk {
             }
         });
 
+        /* Hypixel Bot Setup */
+        client.with(new HypixelBot(new YAMLHypixelBotStorage(Path.of("../run/hypixel-bot-data.yml"))));
+
+
         System.out.print("\n\n");
         long t1 = System.currentTimeMillis();
         client.connect(new InetSocketAddress("mc.hypixel.net", 25565)).join();
         long t2 = System.currentTimeMillis();
 
-        client.onDisconnect().await(15 * 1000); // let it run for 15 seconds
+        client.onDisconnect().await(10 * 1000); // let it run for 15 seconds
         client.disconnect(MinecraftClient.DisconnectReason.FORCE, null);
         long t3 = System.currentTimeMillis();
 

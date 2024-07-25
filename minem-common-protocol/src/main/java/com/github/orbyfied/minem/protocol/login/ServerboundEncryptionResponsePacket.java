@@ -4,7 +4,7 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.PacketData;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import lombok.*;
 
 /**
@@ -24,13 +24,13 @@ public class ServerboundEncryptionResponsePacket implements PacketData {
     byte[] verifyTokenBytes;  // The bytes of the received verify token encrypted with the same public key
 
     @Override
-    public void read(Packet container, ByteBuf in) throws Exception {
+    public void read(Packet container, UnsafeByteBuf in) throws Exception {
         sharedSecretBytes = in.readBytes(in.readVarInt());
         verifyTokenBytes = in.readBytes(in.readVarInt());
     }
 
     @Override
-    public void write(Packet container, ByteBuf out) throws Exception {
+    public void write(Packet container, UnsafeByteBuf out) throws Exception {
         out.writeVarInt(sharedSecretBytes.length);
         out.writeBytes(sharedSecretBytes);
         out.writeVarInt(verifyTokenBytes.length);

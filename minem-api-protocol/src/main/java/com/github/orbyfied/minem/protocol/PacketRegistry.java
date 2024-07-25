@@ -1,5 +1,6 @@
 package com.github.orbyfied.minem.protocol;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -22,7 +23,7 @@ public interface PacketRegistry {
     }
 
     /**
-     * Get the packet mapping for the given numerical ID.
+     * Get the packet mapping for the given registry ID.
      *
      * @param id The ID.
      * @return The mapping.
@@ -36,6 +37,14 @@ public interface PacketRegistry {
      * @return The mapping.
      */
     PacketMapping getPacketMapping(String name);
+
+    /**
+     * Get the packet mapping by the given data class.
+     *
+     * @param klass The class.
+     * @return The mapping.
+     */
+    PacketMapping getPacketMapping(Class<?> klass);
 
     /**
      * Try and register the given mapping to this registry.
@@ -71,7 +80,7 @@ public interface PacketRegistry {
     }
 
     default PacketRegistry compileAndRegister(Class<?> klass) {
-        return registerPacketMapping(PacketMapping.compile(klass));
+        return registerPacketMapping(PacketMapping.compileMapping(klass));
     }
 
     /**
@@ -80,5 +89,32 @@ public interface PacketRegistry {
      * @return The mappings.
      */
     List<PacketMapping> allPacketMappings();
+
+    /**
+     * List all registered packet mappings into the given list.
+     *
+     * @param list The destination list.
+     */
+    void allPacketMappings(List<PacketMapping> list);
+
+    /**
+     * Try and list all mappings which are described by the given key.
+     *
+     * @param list The destination collection.
+     * @param key The key, could be a name, ID, data class, etc.
+     */
+    void match(Collection<PacketMapping> list, Object key);
+
+    /**
+     * Try and list all mappings which are described by the given key.
+     *
+     * @param key The key, could be a name, ID, data class, etc.
+     * @return The mappings.
+     */
+    default Collection<PacketMapping> match(Object key) {
+        List<PacketMapping> list = new ArrayList<>();
+        match(list, key);
+        return list;
+    }
 
 }

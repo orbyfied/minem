@@ -10,7 +10,7 @@ import java.util.function.Supplier;
  *
  * @param <F> The invoker/handler function.
  */
-public class Chain<F> {
+public class Chain<F> implements ChainAccess<F> {
 
     /**
      * Integer result flag.

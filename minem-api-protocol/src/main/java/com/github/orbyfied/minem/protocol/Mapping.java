@@ -19,5 +19,6 @@ public @interface Mapping {
     String[] aliases() default {};               // The aliases for the mapping
     Destination dest() default Destination.FIND; // Where the packet is bound
     int flags() default 0;                       // The flags on this mapping, see PacketMapping#flags
+    Class<?> dataClass() default Void.class;     // The data class, only used by static mappings
 
 }

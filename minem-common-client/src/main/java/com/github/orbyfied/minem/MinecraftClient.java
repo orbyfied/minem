@@ -12,7 +12,7 @@ import com.github.orbyfied.minem.protocol.play.ClientboundDisconnectPacket;
 import com.github.orbyfied.minem.protocol.play.ClientboundKeepAlivePacket;
 import com.github.orbyfied.minem.protocol.play.ServerboundKeepAlivePacket;
 import com.github.orbyfied.minem.protocol.*;
-import com.github.orbyfied.minem.buffer.ByteBuf;
+import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import com.github.orbyfied.minem.buffer.Memory;
 import com.github.orbyfied.minem.io.ProtocolIO;
 import com.github.orbyfied.minem.protocol.UnknownPacket;
@@ -72,6 +72,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     final AtomicBoolean active = new AtomicBoolean(false);
     final AtomicBoolean readActive = new AtomicBoolean(false);
 
+    /* Compression */
     int compressionLevel = 2;         // The compression level to use
     int compressionThreshold = -1;    // The connection threshold agreed upon with the server, -1 if no compression
     volatile Cipher decryptionCipher; // The decryption cipher if encryption is enabled
@@ -84,7 +85,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     byte[] compressedBytes = new byte[1024 * 16];
 
     // The pool of write buffers
-    FastThreadLocal<ByteBuf> writeBufferPool = new FastThreadLocal<>();
+    FastThreadLocal<UnsafeByteBuf> writeBufferPool = new FastThreadLocal<>();
 
     /* Client Events */
     final Chain<ClientStateSwitchHandler> onStateSwitch = new Chain<>(ClientStateSwitchHandler.class);
@@ -98,8 +99,8 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     AtomicInteger countSent = new AtomicInteger();
 
     /* Multiplexed Connection Events */
-    final MultiChain<String, PacketHandler> onTypedSent = new MultiChain<>(k -> new Chain<>(PacketHandler.class).integerFlagHandling());
-    final MultiChain<String, PacketHandler> onTypedReceived = new MultiChain<>(k -> new Chain<>(PacketHandler.class).integerFlagHandling());
+    final MultiChain<PacketMapping, PacketHandler> onTypedSent = new MultiChain<PacketMapping, PacketHandler>(k -> new Chain<>(PacketHandler.class).integerFlagHandling()).keyMapper(o -> protocol.match(o));
+    final MultiChain<PacketMapping, PacketHandler> onTypedReceived = new MultiChain<PacketMapping, PacketHandler>(k -> new Chain<>(PacketHandler.class).integerFlagHandling()).keyMapper(o -> protocol.match(o));
 
     private OutputStream socketOutput;
     private InputStream socketInput;
@@ -247,10 +248,26 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         return true;
     }
 
+    /**
+     * Try to find a packet mapping by the given name and create a new
+     * packet with the given data.
+     */
     public Packet createPacket(String name, Object data) {
         return protocol
                 .forPhase(state.phase)
                 .getPacketMapping(name)
+                .createPacketContainer(this)
+                .withData(data);
+    }
+
+    /**
+     * Try to find a packet mapping by the given data type and create a new packet
+     * with that data.
+     */
+    public Packet createPacket(Object data) {
+        return protocol
+                .forPhase(state.phase)
+                .getPacketMapping(data.getClass())
                 .createPacketContainer(this)
                 .withData(data);
     }
@@ -261,7 +278,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
             packet.set(Packet.OUTBOUND);
 
             // call events
-            var h = onTypedSent.orNull(packet.getMapping().getPrimaryName());
+            var h = onTypedSent.orNull(packet.getMapping());
             if (h != null) {
                 h.invoker().onPacket(packet);
                 if (packet.check(Packet.CANCEL)) {
@@ -280,7 +297,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
             }
 
             OutputStream stream = getOutputStream();
-            ByteBuf buf = getWriteBuffer();
+            UnsafeByteBuf buf = getWriteBuffer();
             buf.reset();
 
             // write packet type and data
@@ -328,10 +345,10 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
 
     // run() for the connection read thread
     private void runReadThread() {
-        ByteBuf buf = ByteBuf.create(1024);
+        UnsafeByteBuf buf = UnsafeByteBuf.createDirect(1024);
         Packet packet; // for release of any resources
 
-        Packet unknownPacketContainer = UnknownPacket.CLIENTBOUND_MAPPING.createPacketContainer(this);
+        Packet unknownPacketContainer = UnknownPacket.CLIENTBOUND_MAPPING.createPacketContainerWithData(this);
         UnknownPacket unknownPacket = new UnknownPacket();
         unknownPacketContainer.source(this);
         unknownPacketContainer.set(Packet.INBOUND);
@@ -394,7 +411,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                             .forPhase(phase)
                             .getClientboundPacketMapping(packetID);
                     if (mapping != null) {
-                        packet = mapping.createPacketContainer(this);
+                        packet = mapping.createPacketContainerWithData(this);
                         mapping.readPacketData(packet, buf);
 
                         packet.source(this);
@@ -410,7 +427,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                     }
 
                     // call event chains
-                    var h = onTypedReceived.orNull(packet.getMapping().getPrimaryName());
+                    var h = onTypedReceived.orNull(packet.getMapping());
                     if (h != null) {
                         h.invoker().onPacket(packet);
                         if (packet.check(Packet.CANCEL)) {
@@ -538,11 +555,11 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         return onPacket;
     }
 
-    public MultiChain<String, PacketHandler> onTypedReceived() {
+    public MultiChain<PacketMapping, PacketHandler> onTypedReceived() {
         return onTypedReceived;
     }
 
-    public MultiChain<String, PacketHandler> onTypedSent() {
+    public MultiChain<PacketMapping, PacketHandler> onTypedSent() {
         return onTypedSent;
     }
 
@@ -556,8 +573,8 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     }
 
     // get or create a byte buffer for writing packets
-    private ByteBuf getWriteBuffer() {
-        return writeBufferPool.getOrCompute(() -> ByteBuf.create(1024));
+    private UnsafeByteBuf getWriteBuffer() {
+        return writeBufferPool.getOrCompute(() -> UnsafeByteBuf.createDirect(1024));
     }
 
     /**

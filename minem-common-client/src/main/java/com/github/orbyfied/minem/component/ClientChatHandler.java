@@ -2,9 +2,12 @@ package com.github.orbyfied.minem.component;
 
 import com.github.orbyfied.minem.ClientComponent;
 import com.github.orbyfied.minem.MinecraftClient;
+import com.github.orbyfied.minem.data.ProtocolTextComponents;
 import com.github.orbyfied.minem.event.Chain;
-import com.github.orbyfied.minem.protocol.common.ChatMessagePacket;
+import com.github.orbyfied.minem.protocol.common.ClientboundChatMessagePacket;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles incoming chat messages and sending chat messages/commands.
@@ -16,9 +19,12 @@ public class ClientChatHandler extends ClientComponent {
 
     @Override
     protected boolean attach(MinecraftClient client) {
-        client.onTypedReceived().by("ClientboundChatMessage").addLast(packet -> {
-            ChatMessagePacket messagePacket = packet.data(ChatMessagePacket.class);
-            onChatReceived.invoker().chatReceived(this, messagePacket.getMessage(), Type.values()[messagePacket.getPosition()]);
+        client.onTypedReceived().by(ClientboundChatMessagePacket.class).addLast(packet -> {
+            ClientboundChatMessagePacket messagePacket = packet.data(ClientboundChatMessagePacket.class);
+
+            // fix legacy colors
+            Component message = ProtocolTextComponents.fixLegacyFormattingInTree(messagePacket.getMessage());
+            onChatReceived.invoker().chatReceived(this, message, Type.values()[messagePacket.getPosition()]);
             return 0;
         });
 
