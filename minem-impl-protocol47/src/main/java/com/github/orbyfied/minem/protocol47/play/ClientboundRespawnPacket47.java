@@ -12,11 +12,11 @@ import com.github.orbyfied.minem.protocol.play.Gamemode;
 @Mapping(id = 0x07, phase = ProtocolPhases.PLAY, primaryName = "ClientboundRespawn", dataClass = ClientboundRespawnPacket.class)
 public class ClientboundRespawnPacket47 {
 
-    public static void write(ClientboundJoinGamePacket packet, Packet container, UnsafeByteBuf buf) {
+    public static void write(ClientboundRespawnPacket packet, Packet container, UnsafeByteBuf buf) {
         // todo
     }
 
-    public static void read(ClientboundJoinGamePacket packet, Packet container, UnsafeByteBuf buf) {
+    public static void read(ClientboundRespawnPacket packet, Packet container, UnsafeByteBuf buf) {
         packet.setDimension(Dimension.from(buf.readInt()));
         packet.setDifficulty(buf.readByte());
         packet.setGamemode(Gamemode.values()[buf.readByte()]);

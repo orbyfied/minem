@@ -6,7 +6,7 @@ import lombok.Setter;
 /**
  * A vector of 3 doubles.
  */
-public class Vec3d implements Vec3<Double> {
+public class Vec3d extends Vec3<Double> {
 
     @Getter
     public double x, y, z; // Components

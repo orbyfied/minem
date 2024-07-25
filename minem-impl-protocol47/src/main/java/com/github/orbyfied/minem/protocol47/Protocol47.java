@@ -3,10 +3,11 @@ package com.github.orbyfied.minem.protocol47;
 import com.github.orbyfied.minem.protocol.CommonPacketImplementations;
 import com.github.orbyfied.minem.protocol.PacketUtil;
 import com.github.orbyfied.minem.protocol.Protocol;
-import com.github.orbyfied.minem.protocol47.play.ClientboundChatMessagePacket47;
-import com.github.orbyfied.minem.protocol47.play.ClientboundPlayerAbilitiesPacket47;
-import com.github.orbyfied.minem.protocol47.play.ServerboundChatPacket47;
-import com.github.orbyfied.minem.protocol47.play.ServerboundPlayerAbilitiesPacket47;
+import com.github.orbyfied.minem.protocol.play.ClientboundJoinGamePacket;
+import com.github.orbyfied.minem.protocol.play.ClientboundPositionAndLookPacket;
+import com.github.orbyfied.minem.protocol.play.ServerboundPlayerGroundedPacket;
+import com.github.orbyfied.minem.protocol.play.ServerboundPlayerPositionPacket;
+import com.github.orbyfied.minem.protocol47.play.*;
 
 public class Protocol47 {
 
@@ -20,7 +21,14 @@ public class Protocol47 {
             ClientboundChatMessagePacket47.class,
             ServerboundChatPacket47.class,
             ClientboundPlayerAbilitiesPacket47.class,
-            ServerboundPlayerAbilitiesPacket47.class
+            ServerboundPlayerAbilitiesPacket47.class,
+            ClientboundJoinGamePacket47.class,
+            ClientboundRespawnPacket47.class,
+            ClientboundPositionAndLookPacket47.class,
+            ServerboundPlayerPositionPacket47.class,
+            ServerboundPlayerLookPacket47.class,
+            ServerboundPlayerPositionPacket47.class,
+            ServerboundPlayerGroundedPacket47.class
     };
 
     static {

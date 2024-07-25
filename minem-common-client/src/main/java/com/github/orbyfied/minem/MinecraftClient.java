@@ -53,7 +53,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
      * The scheduler for this client.
      */
     @Getter
-    ClientScheduler scheduler = new ClientScheduler();
+    ClientScheduler scheduler = new ClientScheduler(this);
 
     /**
      * The protocol to use.
@@ -88,6 +88,8 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     Thread updateThread;          // The thread simulating a 60 FPS render thread
     volatile long tickDt = 0;     // The latest delta time of one tick
     volatile long updateDt = 0;   // The latest delta time of one update
+    AtomicInteger tickCount = new AtomicInteger(0);
+    AtomicInteger updateCount = new AtomicInteger(0);
     final Chain<ClientTickHandler> onTick = new Chain<>(ClientTickHandler.class);
     final Chain<ClientTickHandler> onUpdate = new Chain<>(ClientTickHandler.class);
 
@@ -320,6 +322,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
 
     // run() for the tick thread
     private void runTickLoop() {
+        this.tickCount.set(0);
         final long period = 50;
         long lastTick = 0;
         while (active.get() && enableTicking) {
@@ -334,11 +337,14 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
             if (tickDt < period) {
                 sleepSafe(period - tickDt);
             }
+
+            tickCount.incrementAndGet();
         }
     }
 
     // run() for the update thread
     private void runUpdateLoop() {
+        this.updateCount.set(0);
         long lastTick = 0;
         while (active.get() && targetUps != 0) {
             long period = 1000 / targetUps;
@@ -354,7 +360,17 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
             if (updateDt < period) {
                 sleepSafe(period - updateDt);
             }
+
+            updateCount.incrementAndGet();
         }
+    }
+
+    public int tickCount() {
+        return tickCount.get();
+    }
+
+    public int updateCount() {
+        return updateCount.get();
     }
 
     /**
@@ -585,6 +601,9 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         for (ClientComponent component : this.componentList) {
             component.resetState();
         }
+
+        this.tickCount.set(0);
+        this.updateCount.set(0);
 
         this.isResetState = true;
     }

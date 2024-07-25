@@ -1,13 +1,17 @@
 package com.github.orbyfied.minem.component;
 
 import com.github.orbyfied.minem.ClientComponent;
+import com.github.orbyfied.minem.ClientState;
 import com.github.orbyfied.minem.MinecraftClient;
+import com.github.orbyfied.minem.entity.Entity;
+import com.github.orbyfied.minem.event.Chain;
 import com.github.orbyfied.minem.listener.IncomingPacketListener;
 import com.github.orbyfied.minem.listener.SubscribePacket;
 import com.github.orbyfied.minem.math.Vec3d;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.play.*;
 import lombok.Getter;
+import lombok.ToString;
 
 import static com.github.orbyfied.minem.protocol.play.ClientboundPositionAndLookPacket.*;
 
@@ -15,7 +19,8 @@ import static com.github.orbyfied.minem.protocol.play.ClientboundPositionAndLook
  * Tracks entity information about the client (local) player.
  */
 @Getter
-public class LocalPlayer extends ClientComponent implements IncomingPacketListener {
+@ToString
+public class LocalPlayer extends ClientComponent implements IncomingPacketListener, Entity {
 
     int entityID;        // The entity ID of the player
     Vec3d position;      // The current position of the player
@@ -24,10 +29,31 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
     Gamemode gamemode;   // The current gamemode of the player
     Dimension dimension; // The current world/dimension of the player
 
+    volatile boolean canFly;        // Whether we have the capability to fly
+    volatile boolean flying;        // Whether we are currently in fly mode
+    volatile boolean grounded;      // Whether we are on the ground
+    volatile Boolean forceGrounded; // The value to force grounded to
+    volatile float flySpeed;        // The fly speed set by the server
+
+    final Chain<FlyUpdateHandler> onFlyUpdate = new Chain<>(FlyUpdateHandler.class);
+
     @Override
     protected boolean attach(MinecraftClient client) {
         subscribeAllIncomingPackets(client);
+
+        client.onTick().addLast(this::onTick);
+
         return true;
+    }
+
+    // called every 50ms
+    private void onTick(MinecraftClient client) {
+        int tick = client.tickCount();
+        if (tick % 20 == 0 && isPositionInitialized()) {
+            // send absolute data packet to server
+            System.out.println("sending position " + position + " grounded: " + effectivelyGrounded());
+            client.sendSync(client.createPacket(new ServerboundPlayerPositionPacket(position.x, position.y, position.z, effectivelyGrounded())));
+        }
     }
 
     @SubscribePacket
@@ -56,7 +82,6 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
 
         if ((flags & FLAG_REL_YAW) > 0)   yaw += packet.getYaw();     else yaw =   packet.getYaw();
         if ((flags & FLAG_REL_PITCH) > 0) pitch += packet.getPitch(); else pitch = packet.getPitch();
-        System.out.println("new position: " + pos);
     }
 
     @Override
@@ -64,6 +89,9 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
         position = null;
         pitch = 0;
         yaw = 0;
+        canFly = false;
+        flying = false;
+        grounded = false;
     }
 
     // get or create the position object
@@ -77,6 +105,81 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
 
     public boolean isPositionInitialized() {
         return position != null;
+    }
+
+    @SubscribePacket
+    void onAbilitiesPacket(Packet container, ClientboundPlayerAbilitiesPacket packet) {
+        Boolean mCanFly = canFly == packet.isCanFly() ? null : packet.isCanFly();
+        Boolean mFlying = flying == packet.isFlying() ? null : packet.isFlying();
+        Float mFlySpeed = flySpeed == packet.getFlySpeed() ? null : packet.getFlySpeed();
+        this.canFly = packet.isCanFly();
+        this.flying = packet.isFlying();
+        this.flySpeed = packet.getFlySpeed();
+        onFlyUpdate.invoker().onFlyUpdate(this, mFlying, mCanFly, mFlySpeed);
+    }
+
+    /**
+     * Enable or disable fly mode.
+     *
+     * @return Whether it updated successfully.
+     */
+    public boolean fly(boolean b) {
+        if (flying == b) {
+            return false;
+        }
+
+        if (!canFly && !flying && b) {
+            return false;
+        }
+
+        flying = b;
+        client.sendSync(client.createPacket(new ServerboundPlayerAbilitiesPacket()
+                .flying(b)
+                .flySpeed(flySpeed)
+                .walkSpeed(1)));
+        onFlyUpdate.invoker().onFlyUpdate(this, b, null, null);
+        return true;
+    }
+
+    /**
+     * Try and get the ground level our bounding box will hit at the given X and Z coordinates.
+     */
+    public int getGroundLevel(double x, double z) {
+        return 0; // todo
+    }
+
+    public boolean canFly() {
+        return canFly;
+    }
+
+    public boolean isFlying() {
+        return flying;
+    }
+
+    public boolean isGrounded() {
+        return grounded;
+    }
+
+    public boolean effectivelyGrounded() {
+        return forceGrounded != null ? forceGrounded : grounded;
+    }
+
+    public Chain<FlyUpdateHandler> onFlyUpdate() {
+        return onFlyUpdate;
+    }
+
+    public LocalPlayer forceGrounded(Boolean forceGrounded) {
+        this.forceGrounded = forceGrounded;
+        return this;
+    }
+
+    public Boolean forceGrounded() {
+        return forceGrounded;
+    }
+
+    // Event Handler
+    public interface FlyUpdateHandler {
+        void onFlyUpdate(LocalPlayer localPlayer, Boolean canFlyChange, Boolean flyingChange, Float flySpeedChange);
     }
 
 }

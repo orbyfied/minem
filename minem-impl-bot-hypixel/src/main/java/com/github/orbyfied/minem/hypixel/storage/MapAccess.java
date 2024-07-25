@@ -10,8 +10,21 @@ import java.util.function.Supplier;
 /**
  * Nicer map access.
  */
+@RequiredArgsConstructor
+@Getter
 @SuppressWarnings("unchecked")
-public record MapAccess<K, V>(Map<K, V> map) {
+public class MapAccess<K, V> {
+
+    final Map<K, V> map;
+    final MapAccess<K, V> def;
+
+    public static <K, V> MapAccess<K, V> of(Map<K, V> map) {
+        return new MapAccess<>(map, null);
+    }
+
+    public static <K, V> MapAccess<K, V> ofDefaulted(Map<K, V> map, MapAccess<K, V> def) {
+        return new MapAccess<>(map, def);
+    }
 
     public int size() {
         return map.size();
@@ -22,15 +35,20 @@ public record MapAccess<K, V>(Map<K, V> map) {
     }
 
     public V get(K key) {
-        return map.get(key);
+        V val = map.get(key);
+        if (val == null && def != null) {
+            val = def.get(key);
+        }
+
+        return val;
     }
 
     public <T> T getAs(K key) {
-        return (T) map.get(key);
+        return (T) get(key);
     }
 
     public <T> T getAs(K key, Class<T> tClass) {
-        return (T) map.get(key);
+        return (T) get(key);
     }
 
     public MapAccess<K, V> set(K key, V val) {
@@ -54,27 +72,31 @@ public record MapAccess<K, V>(Map<K, V> map) {
     }
 
     public V getOr(K key, V def) {
-        return map.getOrDefault(key, def);
+        V val = get(key);
+        return val != null ? val : def;
     }
 
     public <T> T getAsOr(K key, T def) {
-        return (T) map.getOrDefault(key, (V) def);
+        V val = get(key);
+        return val != null ? (T) val : def;
     }
 
     public <T> T getAsOr(K key, Class<T> tClass, T def) {
-        return (T) map.getOrDefault(key, (V) def);
+        return getAsOr(key, def);
     }
 
     public V getOr(K key, Supplier<V> def) {
-        return map.computeIfAbsent(key, __ -> def.get());
+        V val = get(key);
+        return val != null ? val : def.get();
     }
 
     public <T> T getAsOr(K key, Supplier<T> def) {
-        return (T) map.computeIfAbsent(key, __ -> (V) def.get());
+        V val = get(key);
+        return val != null ? (T) val : def.get();
     }
 
     public <T> T getAsOr(K key, Class<T> tClass, Supplier<T> def) {
-        return (T) map.computeIfAbsent(key, __ -> (V) def.get());
+        return getAsOr(key, def);
     }
 
     public MapAccess<String, Object> properties(K key) {
@@ -82,7 +104,7 @@ public record MapAccess<K, V>(Map<K, V> map) {
     }
 
     public <K2, V2> MapAccess<K2, V2> map(K key) {
-        return new MapAccess<>((Map<K2, V2>) map.computeIfAbsent(key, __ -> (V) new HashMap<K2, V2>()));
+        return new MapAccess<>((Map<K2, V2>) map.computeIfAbsent(key, __ -> (V) new HashMap<K2, V2>()), null);
     }
 
 }

@@ -1,18 +1,18 @@
 package test.minem.hypixelbot;
 
-import com.github.orbyfied.minem.component.ClientAuthenticator;
 import com.github.orbyfied.minem.MinecraftClient;
 import com.github.orbyfied.minem.auth.AccountContext;
 import com.github.orbyfied.minem.auth.MinecraftAccount;
+import com.github.orbyfied.minem.component.ClientAuthenticator;
 import com.github.orbyfied.minem.component.ClientChatHandler;
 import com.github.orbyfied.minem.component.LocalPlayer;
 import com.github.orbyfied.minem.hypixel.HypixelBot;
-import com.github.orbyfied.minem.component.FlyControl;
+import com.github.orbyfied.minem.hypixel.command.HypixelCommand;
 import com.github.orbyfied.minem.hypixel.storage.YAMLHypixelBotStorage;
-import com.github.orbyfied.minem.io.ProtocolIO;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
 import com.github.orbyfied.minem.protocol47.Protocol47;
 import com.github.orbyfied.minem.security.Token;
+import com.github.orbyfied.minem.util.ArrayUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.ansi.ANSIComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -20,8 +20,6 @@ import net.kyori.ansi.ColorLevel;
 import org.junit.jupiter.api.Test;
 import slatepowered.veru.misc.ANSI;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.net.InetSocketAddress;
@@ -72,8 +70,7 @@ public class SimpleHypixelChatBotTest {
                 .protocol(Protocol47.PROTOCOL)
                 .with(new ClientAuthenticator().account(account).accountContext(accountContext))
                 .with(new ClientChatHandler())
-                .with(new LocalPlayer())
-                .with(new FlyControl());
+                .with(new LocalPlayer());
 
         AtomicInteger totalUnknownReceived = new AtomicInteger(0);
         Map<Integer, Integer> receivedIdCount = new HashMap<>();
@@ -90,8 +87,8 @@ public class SimpleHypixelChatBotTest {
         final ANSIComponentSerializer serializer = ANSIComponentSerializer.builder()
                 .colorLevel(ColorLevel.TRUE_COLOR)
                 .build();
-        client.find(ClientChatHandler.class).onChatReceived().addLast((handler, message, type) -> {
-            System.out.println("[CH] " + serializer.serializeOrNull(message));
+        client.find(ClientChatHandler.class).onChatReceived().addLast((handler, message, rawMessage, type) -> {
+            System.out.println("\n" + serializer.serializeOrNull(message));
         });
 
         client.onPacketReceived().addFirst(packet -> {
@@ -123,16 +120,26 @@ public class SimpleHypixelChatBotTest {
             }
         });
 
+        LocalPlayer localPlayer = client.find(LocalPlayer.class);
+        localPlayer.forceGrounded(true);
+        localPlayer.onFlyUpdate().addLast((localPlayer1, canFlyChange, flyingChange, flySpeedChange) -> {
+            if (canFlyChange != null) {
+                localPlayer1.fly(canFlyChange);
+            }
+        });
+
         /* Hypixel Bot Setup */
-        client.with(new HypixelBot(new YAMLHypixelBotStorage(Path.of("../run/hypixel-bot-data.yml")))
-                .randomJoinMessages("hi", "cybean"));
+        client.with(new HypixelBot(new YAMLHypixelBotStorage(Path.of("../run/hypixel-bot-data.yml"))
+                .owner("a6e74213-a823-4131-baf9-9201906dd156"))
+                .randomJoinMessages("cybean", "hi"));
+        register(client, client.find(HypixelBot.class));
 
         System.out.print("\n\n");
         long t1 = System.currentTimeMillis();
         client.connect(new InetSocketAddress("mc.hypixel.net", 25565)).join();
         long t2 = System.currentTimeMillis();
 
-        long waitUntilDisconnect = (long) (/* min 8 seconds */ 8 * 1000 + /* 6s deviation */ Math.random() * 6 * 1000);
+        long waitUntilDisconnect = (long) (/* min 8 seconds */ 60 * 1000 + /* 6s deviation */ Math.random() * 6 * 1000);
         client.onDisconnect().await(waitUntilDisconnect); // let it run for 15 seconds
         client.disconnect(MinecraftClient.DisconnectReason.FORCE, null);
         long t3 = System.currentTimeMillis();
@@ -157,12 +164,17 @@ public class SimpleHypixelChatBotTest {
         System.out.println();
     }
 
-    @Test
-    void test2() throws Exception {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ProtocolIO.writeVarIntToStream(outputStream, 0xFFFFFF);
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(outputStream.toByteArray());
-        System.out.println(ProtocolIO.readVarIntFromStream(inputStream));
+    void register(MinecraftClient client, HypixelBot bot) {
+        bot.register(new HypixelCommand().name("disconnect").aliases("dc").executor(ctx -> {
+            client.find(ClientChatHandler.class).sendChatSync("/gc ok bye");
+            client.disconnect(MinecraftClient.DisconnectReason.ERROR, "ING command issued by " + ctx.getSenderProfile().getName());
+            return null;
+        }));
+
+        bot.register(new HypixelCommand().name("echo").rank(1).executor(ctx -> {
+            ctx.assertArgs(1);
+            return ctx.success(ArrayUtil.join(ctx.getArgs(), " "));
+        }));
     }
 
 }

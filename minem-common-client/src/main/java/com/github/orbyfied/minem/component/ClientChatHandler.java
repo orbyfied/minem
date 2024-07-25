@@ -7,6 +7,7 @@ import com.github.orbyfied.minem.event.Chain;
 import com.github.orbyfied.minem.protocol.play.ClientboundChatMessagePacket;
 import com.github.orbyfied.minem.protocol.play.ServerboundChatPacket;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 /**
  * Handles incoming chat messages and sending chat messages/commands.
@@ -23,7 +24,8 @@ public class ClientChatHandler extends ClientComponent {
 
             // fix legacy colors
             Component message = ProtocolTextComponents.fixLegacyFormattingInTree(messagePacket.getMessage());
-            onChatReceived.invoker().chatReceived(this, message, Type.values()[messagePacket.getPosition()]);
+            String rawMessage = PlainTextComponentSerializer.plainText().serialize(message);
+            onChatReceived.invoker().chatReceived(this, message, rawMessage, Type.values()[messagePacket.getPosition()]);
             return 0;
         });
 
@@ -54,6 +56,7 @@ public class ClientChatHandler extends ClientComponent {
     public interface ChatMessageHandler {
         void chatReceived(ClientChatHandler handler,
                           Component message,
+                          String rawMessage,
                           Type type);
     }
 

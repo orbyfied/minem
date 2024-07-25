@@ -237,7 +237,7 @@ public abstract class UnsafeByteBuf {
 
     public final void writeLong(long val) { ensureWriteCapacity(8); setLong(writeIndex, val); advWriter(8); }
     public final void writeInt(int val) { ensureWriteCapacity(4); setInt(writeIndex, val); advWriter(4); }
-    public final void writeDouble(long val) { ensureWriteCapacity(8); setDouble(writeIndex, val); advWriter(8); }
+    public final void writeDouble(double val) { ensureWriteCapacity(8); setDouble(writeIndex, val); advWriter(8); }
     public final void writeFloat(float val) { ensureWriteCapacity(4); setFloat(writeIndex, val); advWriter(4); }
     public final void writeShort(short val) { ensureWriteCapacity(2); setShort(writeIndex, val); advWriter(2); }
     public final void writeChar(char val) { ensureWriteCapacity(2); setChar(writeIndex, val); advWriter(2); }

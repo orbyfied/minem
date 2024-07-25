@@ -6,7 +6,7 @@ import lombok.Setter;
 /**
  * A vector of 3 integers.
  */
-public class Vec3i implements Vec3<Integer> {
+public class Vec3i extends Vec3<Integer> {
 
     @Getter
     public int x, y, z; // Components
