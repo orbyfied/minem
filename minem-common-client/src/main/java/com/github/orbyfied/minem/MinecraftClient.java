@@ -16,6 +16,7 @@ import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import com.github.orbyfied.minem.buffer.Memory;
 import com.github.orbyfied.minem.io.ProtocolIO;
 import com.github.orbyfied.minem.protocol.UnknownPacket;
+import com.github.orbyfied.minem.scheduler.ClientScheduler;
 import com.github.orbyfied.minem.util.ClientDebugUtils;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -31,9 +32,7 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.Deflater;
@@ -44,7 +43,17 @@ import java.util.zip.Inflater;
  */
 public class MinecraftClient extends ProtocolContext implements PacketSource, PacketSink {
 
-    ExecutorService executor = Executors.newFixedThreadPool(2);
+    /**
+     * The unscheduled executor.
+     */
+    @Getter
+    ExecutorService executor = Executors.newFixedThreadPool(4);
+
+    /**
+     * The scheduler for this client.
+     */
+    @Getter
+    ClientScheduler scheduler = new ClientScheduler();
 
     /**
      * The protocol to use.
@@ -71,6 +80,16 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
 
     final AtomicBoolean active = new AtomicBoolean(false);
     final AtomicBoolean readActive = new AtomicBoolean(false);
+
+    /* Updates and Ticking */
+    boolean enableTicking = true; // Whether the 50ms ticking should be enabled
+    int targetUps = 60;           // The target updates per second, 0 to disable updates
+    Thread tickThread;            // The thread simulating 50ms ticks
+    Thread updateThread;          // The thread simulating a 60 FPS render thread
+    volatile long tickDt = 0;     // The latest delta time of one tick
+    volatile long updateDt = 0;   // The latest delta time of one update
+    final Chain<ClientTickHandler> onTick = new Chain<>(ClientTickHandler.class);
+    final Chain<ClientTickHandler> onUpdate = new Chain<>(ClientTickHandler.class);
 
     /* Compression */
     int compressionLevel = 2;         // The compression level to use
@@ -206,6 +225,20 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
 
                 updateReadActive(true);
 
+                // start tick and update schedule
+                if (enableTicking && tickThread == null) {
+                    tickThread = new Thread(this::runTickLoop, "MinecraftClient Tick Thread");
+                    tickThread.setDaemon(true);
+                }
+
+                if (targetUps != 0 && updateThread == null) {
+                    updateThread = new Thread(this::runUpdateLoop, "MinecraftClient Update Thread");
+                    updateThread.setDaemon(true);
+                }
+
+                if (enableTicking) tickThread.start();
+                if (targetUps != 0) updateThread.start();
+
                 // now we wait for components to complete login...
 
                 return this;
@@ -238,6 +271,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
             active.set(false);
             updateReadActive(false);
 
+            scheduler.stop();
             writeBufferPool.forEach((integer, byteBuf) -> {
                 byteBuf.free();
             });
@@ -249,13 +283,88 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     }
 
     /**
+     * Disconnects the client with the given reason, if connected.
+     *
+     * @param reason The reason.
+     * @param details The detailed reason.
+     * @return Whether it disconnected the client.
+     */
+    public synchronized boolean disconnect(DisconnectReason reason,
+                                           Object details) {
+        if (!close()) {
+            return false;
+        }
+
+        try {
+            onDisconnect.invoker().onDisconnect(this, reason, details);
+        } catch (Exception ex) {
+            System.err.println("Error while invoking disconnect handlers");
+            ex.printStackTrace();
+        }
+
+        return true;
+    }
+
+    public float tickDeltaTime() {
+        return tickDt / 1000f;
+    }
+
+    public float updateDeltaTime() {
+        return updateDt / 1000f;
+    }
+
+    private void sleepSafe(long ms) {
+        try { Thread.sleep(ms); }
+        catch (Exception ignored) { }
+    }
+
+    // run() for the tick thread
+    private void runTickLoop() {
+        final long period = 50;
+        long lastTick = 0;
+        while (active.get() && enableTicking) {
+            // execute tick
+            scheduler.tick();
+            onTick.invoker().onTick(this);
+
+            long now = System.currentTimeMillis();
+            tickDt = now - lastTick;
+            lastTick = now;
+
+            if (tickDt < period) {
+                sleepSafe(period - tickDt);
+            }
+        }
+    }
+
+    // run() for the update thread
+    private void runUpdateLoop() {
+        long lastTick = 0;
+        while (active.get() && targetUps != 0) {
+            long period = 1000 / targetUps;
+
+            // execute update
+            scheduler.update();
+            onUpdate.invoker().onTick(this);
+
+            long now = System.currentTimeMillis();
+            updateDt = now - lastTick;
+            lastTick = now;
+
+            if (updateDt < period) {
+                sleepSafe(period - updateDt);
+            }
+        }
+    }
+
+    /**
      * Try to find a packet mapping by the given name and create a new
      * packet with the given data.
      */
     public Packet createPacket(String name, Object data) {
         return protocol
                 .forPhase(state.phase)
-                .getPacketMapping(name)
+                .requirePacketMapping(name)
                 .createPacketContainer(this)
                 .withData(data);
     }
@@ -267,7 +376,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     public Packet createPacket(Object data) {
         return protocol
                 .forPhase(state.phase)
-                .getPacketMapping(data.getClass())
+                .requirePacketMapping(data.getClass())
                 .createPacketContainer(this)
                 .withData(data);
     }
@@ -577,32 +686,40 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         return writeBufferPool.getOrCompute(() -> UnsafeByteBuf.createDirect(1024));
     }
 
-    /**
-     * Disconnects the client with the given reason, if connected.
-     *
-     * @param reason The reason.
-     * @param details The detailed reason.
-     * @return Whether it disconnected the client.
-     */
-    public synchronized boolean disconnect(DisconnectReason reason,
-                                           Object details) {
-        if (!close()) {
-            return false;
+    public Chain<ClientTickHandler> onTick() {
+        return onTick;
+    }
+
+    public Chain<ClientTickHandler> onUpdate() {
+        return onUpdate;
+    }
+
+    public MinecraftClient enableTicking(boolean enableTicking) {
+        this.enableTicking = enableTicking;
+        if (!enableTicking) {
+            tickThread = null;
         }
 
-        try {
-            onDisconnect.invoker().onDisconnect(this, reason, details);
-        } catch (Exception ex) {
-            System.err.println("Error while invoking disconnect handlers");
-            ex.printStackTrace();
+        return this;
+    }
+
+    public MinecraftClient targetUpdateRate(int targetUps) {
+        this.targetUps = targetUps;
+        if (targetUps == 0) {
+            updateThread = null;
         }
 
-        return true;
+        return this;
     }
 
     // Event Handler: called when the client switches state
     public interface ClientStateSwitchHandler {
         void onStateSwitch(ClientState oldState, ClientState newState);
+    }
+
+    // Event Handler: 50ms tick handler
+    public interface ClientTickHandler {
+        void onTick(MinecraftClient client);
     }
 
     // The reason for a disconnect

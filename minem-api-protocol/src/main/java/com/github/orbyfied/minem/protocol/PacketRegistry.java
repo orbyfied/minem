@@ -47,6 +47,54 @@ public interface PacketRegistry {
     PacketMapping getPacketMapping(Class<?> klass);
 
     /**
+     * Require the packet mapping to be present, then return it.
+     *
+     * @param id The ID.
+     * @return The mapping.
+     * @throws IllegalArgumentException If the mapping is absent.
+     */
+    default PacketMapping requirePacketMapping(int id) {
+        PacketMapping mapping = getPacketMapping(id);
+        if (mapping == null) {
+            throw new IllegalArgumentException("No packet mapping for registry ID 0x" + Integer.toHexString(id));
+        }
+
+        return mapping;
+    }
+
+    /**
+     * Require the packet mapping to be present, then return it.
+     *
+     * @param name The name.
+     * @return The mapping.
+     * @throws IllegalArgumentException If the mapping is absent.
+     */
+    default PacketMapping requirePacketMapping(String name) {
+        PacketMapping mapping = getPacketMapping(name);
+        if (mapping == null) {
+            throw new IllegalArgumentException("No packet mapping for name '" + name + "'");
+        }
+
+        return mapping;
+    }
+
+    /**
+     * Require the packet mapping to be present, then return it.
+     *
+     * @param klass The class.
+     * @return The mapping.
+     * @throws IllegalArgumentException If the mapping is absent.
+     */
+    default PacketMapping requirePacketMapping(Class<?> klass) {
+        PacketMapping mapping = getPacketMapping(klass);
+        if (mapping == null) {
+            throw new IllegalArgumentException("No packet mapping for data class " + klass.getName());
+        }
+
+        return mapping;
+    }
+
+    /**
      * Try and register the given mapping to this registry.
      *
      * @param mapping The mapping.

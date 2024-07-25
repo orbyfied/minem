@@ -1,4 +1,4 @@
-package com.github.orbyfied.minem.protocol.common;
+package com.github.orbyfied.minem.protocol.play;
 
 import lombok.*;
 import net.kyori.adventure.text.Component;

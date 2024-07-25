@@ -1,17 +1,15 @@
 package test.minem.hypixelbot;
 
-import com.github.orbyfied.minem.ClientState;
 import com.github.orbyfied.minem.component.ClientAuthenticator;
 import com.github.orbyfied.minem.MinecraftClient;
 import com.github.orbyfied.minem.auth.AccountContext;
 import com.github.orbyfied.minem.auth.MinecraftAccount;
 import com.github.orbyfied.minem.component.ClientChatHandler;
+import com.github.orbyfied.minem.component.LocalPlayer;
 import com.github.orbyfied.minem.hypixel.HypixelBot;
+import com.github.orbyfied.minem.component.FlyControl;
 import com.github.orbyfied.minem.hypixel.storage.YAMLHypixelBotStorage;
 import com.github.orbyfied.minem.io.ProtocolIO;
-import com.github.orbyfied.minem.profile.MinecraftProfile;
-import com.github.orbyfied.minem.protocol.CommonPacketImplementations;
-import com.github.orbyfied.minem.protocol.Protocol;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
 import com.github.orbyfied.minem.protocol47.Protocol47;
 import com.github.orbyfied.minem.security.Token;
@@ -73,7 +71,9 @@ public class SimpleHypixelChatBotTest {
                 .executor(Executors.newFixedThreadPool(2))
                 .protocol(Protocol47.PROTOCOL)
                 .with(new ClientAuthenticator().account(account).accountContext(accountContext))
-                .with(new ClientChatHandler());
+                .with(new ClientChatHandler())
+                .with(new LocalPlayer())
+                .with(new FlyControl());
 
         AtomicInteger totalUnknownReceived = new AtomicInteger(0);
         Map<Integer, Integer> receivedIdCount = new HashMap<>();
@@ -124,15 +124,16 @@ public class SimpleHypixelChatBotTest {
         });
 
         /* Hypixel Bot Setup */
-        client.with(new HypixelBot(new YAMLHypixelBotStorage(Path.of("../run/hypixel-bot-data.yml"))));
-
+        client.with(new HypixelBot(new YAMLHypixelBotStorage(Path.of("../run/hypixel-bot-data.yml")))
+                .randomJoinMessages("hi", "cybean"));
 
         System.out.print("\n\n");
         long t1 = System.currentTimeMillis();
         client.connect(new InetSocketAddress("mc.hypixel.net", 25565)).join();
         long t2 = System.currentTimeMillis();
 
-        client.onDisconnect().await(10 * 1000); // let it run for 15 seconds
+        long waitUntilDisconnect = (long) (/* min 8 seconds */ 8 * 1000 + /* 6s deviation */ Math.random() * 6 * 1000);
+        client.onDisconnect().await(waitUntilDisconnect); // let it run for 15 seconds
         client.disconnect(MinecraftClient.DisconnectReason.FORCE, null);
         long t3 = System.currentTimeMillis();
 

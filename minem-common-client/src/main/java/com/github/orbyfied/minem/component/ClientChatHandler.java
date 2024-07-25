@@ -4,10 +4,9 @@ import com.github.orbyfied.minem.ClientComponent;
 import com.github.orbyfied.minem.MinecraftClient;
 import com.github.orbyfied.minem.data.ProtocolTextComponents;
 import com.github.orbyfied.minem.event.Chain;
-import com.github.orbyfied.minem.protocol.common.ClientboundChatMessagePacket;
+import com.github.orbyfied.minem.protocol.play.ClientboundChatMessagePacket;
+import com.github.orbyfied.minem.protocol.play.ServerboundChatPacket;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 /**
  * Handles incoming chat messages and sending chat messages/commands.
@@ -35,6 +34,16 @@ public class ClientChatHandler extends ClientComponent {
         return onChatReceived;
     }
 
+    /**
+     * Send the given chat message/command.
+     */
+    public void sendChatSync(String message) {
+        client.sendSync(client.createPacket(new ServerboundChatPacket(message)));
+    }
+
+    /**
+     * The type/position of a chat message.
+     */
     public enum Type {
         CHAT,
         SYSTEM,

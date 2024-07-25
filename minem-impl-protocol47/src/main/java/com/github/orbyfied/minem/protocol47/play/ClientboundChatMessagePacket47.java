@@ -4,7 +4,7 @@ import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
-import com.github.orbyfied.minem.protocol.common.ClientboundChatMessagePacket;
+import com.github.orbyfied.minem.protocol.play.ClientboundChatMessagePacket;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 
 @Mapping(id = 0x02, phase = ProtocolPhases.PLAY, primaryName = "ClientboundChatMessage", dataClass = ClientboundChatMessagePacket.class)

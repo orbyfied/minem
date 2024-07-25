@@ -37,9 +37,9 @@ public class Vec3i implements Vec3<Integer> {
     public int x() { return x; }
     public int y() { return y; }
     public int z() { return z; }
-    public Vec3i x(int x) { this.x = x;return this; }
-    public Vec3i y(int y) { this.y = y;return this; }
-    public Vec3i z(int z) { this.z = z;return this; }
+    public Vec3i x(int x) { this.x = x; return this; }
+    public Vec3i y(int y) { this.y = y; return this; }
+    public Vec3i z(int z) { this.z = z; return this; }
 
     @Override public Integer getGenericX() { return x; }
     @Override public Integer getGenericY() { return y; }

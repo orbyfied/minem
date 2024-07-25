@@ -30,7 +30,7 @@ public class MutablePacketRegistry implements PacketRegistry {
 
     @Override
     public PacketMapping getPacketMapping(Class<?> klass) {
-        return mappingsByAlias.get(klass);
+        return mappingsByClass.get(klass);
     }
 
     @Override
