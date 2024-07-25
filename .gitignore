@@ -1,0 +1,14 @@
+.idea/
+build/
+*/build/*
+build/**
+.gradle/
+/run/
+run/
+/c
+hs_err_*
+
+### SECURITY ###
+/gradle.properties
+/secrets.properties
+/secret-keys.gpg
