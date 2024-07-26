@@ -16,8 +16,8 @@ public class ServerboundPlayerLookPacket47 {
     }
 
     public static void write(ServerboundPlayerLookPacket packet, Packet c, UnsafeByteBuf buf) {
-        buf.writeFloat(packet.getYaw());
-        buf.writeFloat(packet.getPitch());
+        buf.writeFloatReversed(packet.getYaw());
+        buf.writeFloatReversed(packet.getPitch());
         buf.writeBoolean(packet.isGrounded());
     }
 

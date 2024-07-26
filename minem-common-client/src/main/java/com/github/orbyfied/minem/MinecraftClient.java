@@ -47,7 +47,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
      * The unscheduled executor.
      */
     @Getter
-    ExecutorService executor = Executors.newFixedThreadPool(4);
+    ExecutorService executor = Executors.newFixedThreadPool(2, r -> new Thread(r, "MinecraftClient(" + hexHashCode() + ")-PoolThread"));
 
     /**
      * The scheduler for this client.
@@ -122,6 +122,11 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
     /* Multiplexed Connection Events */
     final MultiChain<PacketMapping, PacketHandler> onTypedSent = new MultiChain<PacketMapping, PacketHandler>(k -> new Chain<>(PacketHandler.class).integerFlagHandling()).keyMapper(o -> protocol.match(o));
     final MultiChain<PacketMapping, PacketHandler> onTypedReceived = new MultiChain<PacketMapping, PacketHandler>(k -> new Chain<>(PacketHandler.class).integerFlagHandling()).keyMapper(o -> protocol.match(o));
+    final MultiChain<PacketMapping, PacketHandler> onTypedReceivedAsync = new MultiChain<PacketMapping, PacketHandler>(k -> new Chain<>(PacketHandler.class).integerFlagHandling()).keyMapper(o -> protocol.match(o));
+
+    /** The queue of events to be handled. */
+    final Queue<Object> asyncEventQueue = new ConcurrentLinkedDeque<>();
+    Thread asyncEventPollThread;
 
     private OutputStream socketOutput;
     private InputStream socketInput;
@@ -193,6 +198,10 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         return lastState;
     }
 
+    public String hexHashCode() {
+        return Integer.toHexString(this.hashCode());
+    }
+
     /**
      * Connect the client to the given address.
      *
@@ -211,7 +220,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
 
                     // start packet reader thread
                     if (readerThread == null) {
-                        readerThread = new Thread(this::runReadThread, "MinecraftClient.readerThread");
+                        readerThread = new Thread(this::runReadThread, "MinecraftClient(" + hexHashCode() + ")-SocketReaderThread");
                         readerThread.setDaemon(true);
                     }
 
@@ -225,16 +234,23 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                                 (short) address.getPort(), ServerboundHandshakePacket.NextState.LOGIN)));
                 switchState(ClientState.LOGIN);
 
+                // start event poll thread
+                if (asyncEventPollThread == null) {
+                    asyncEventPollThread = new Thread(this::runAsyncEventPoll, "MinecraftClient(" + hexHashCode() + ")-AsyncEventPoll");
+                    asyncEventPollThread.setDaemon(true);
+                }
+
+                this.asyncEventPollThread.start();
                 updateReadActive(true);
 
                 // start tick and update schedule
                 if (enableTicking && tickThread == null) {
-                    tickThread = new Thread(this::runTickLoop, "MinecraftClient Tick Thread");
+                    tickThread = new Thread(this::runTickLoop, "MinecraftClient(" + hexHashCode() + ")-TickThread");
                     tickThread.setDaemon(true);
                 }
 
                 if (targetUps != 0 && updateThread == null) {
-                    updateThread = new Thread(this::runUpdateLoop, "MinecraftClient Update Thread");
+                    updateThread = new Thread(this::runUpdateLoop, "MinecraftClient(" + hexHashCode() + ")-UpdateThread");
                     updateThread.setDaemon(true);
                 }
 
@@ -397,6 +413,11 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                 .withData(data);
     }
 
+    /**
+     * Synchronously serialize and send the given packet to the server.
+     *
+     * @param packet The packet.
+     */
     @Override
     public void sendSync(Packet packet) {
         try {
@@ -468,6 +489,48 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         }
     }
 
+    // run() for the async event polling
+    private void runAsyncEventPoll() {
+        while (active.get()) {
+            // poll and handle events
+            while (!asyncEventQueue.isEmpty() && active.get()) {
+                Object event = asyncEventQueue.poll();
+
+                try {
+                    /* Check event type and handle accordingly */
+
+                    if (event instanceof Packet packet && packet.check(Packet.INBOUND)) {
+                        var chain = onTypedReceivedAsync.get(packet.getMapping());
+                        if (chain != null) {
+                            chain.invoker().onPacket(packet);
+                        }
+
+                        continue;
+                    }
+                } catch (Throwable ex) {
+                    System.err.println("[MinecraftClient] An error occurred while async processing event " + event);
+                    ex.printStackTrace();
+                }
+            }
+
+            // wait for more events
+            synchronized (asyncEventQueue) {
+                try {
+                    asyncEventQueue.wait();
+                } catch (InterruptedException ignored) {
+
+                }
+            }
+        }
+    }
+
+    protected void submitAsyncEvent(Object o) {
+        asyncEventQueue.add(o);
+        synchronized (asyncEventQueue) {
+            asyncEventQueue.notify();
+        }
+    }
+
     // run() for the connection read thread
     private void runReadThread() {
         UnsafeByteBuf buf = UnsafeByteBuf.createDirect(1024);
@@ -514,10 +577,6 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                                 readDataLength += stream.read(compressedPacket, readDataLength, compressedDataLength - readDataLength);
                             }
 
-//                            System.err.println("COMPRESSED READ | total length: " + packetLength + ", decompressedLengthSent: " + decompressedDataLength + ", " +
-//                                    "viSizeDataLength: " + viSizeDataLength + ", readData(compressed): " + readDataLength + ", expectedCompressedDataLength: " +
-//                                    compressedDataLength);
-
                             synchronized (inflater) {
                                 buf.ensureWriteCapacity(decompressedDataLength);
                                 inflater.reset();
@@ -548,6 +607,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                         unknownPacket.buffer(buf);
                         packet.networkId = packetID;
                         packet.phase = phase;
+                        packet.set(Packet.INBOUND);
                         packet.clear(Packet.CANCEL);
                     }
 
@@ -566,6 +626,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                     }
 
                     onPacket.invoker().onPacket(packet);
+                    submitAsyncEvent(packet);
 
                     // release buffer from packet after being handled
                     if (packet.isUnknown()) {
@@ -689,6 +750,10 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
 
     public MultiChain<PacketMapping, PacketHandler> onTypedSent() {
         return onTypedSent;
+    }
+
+    public MultiChain<PacketMapping, PacketHandler> onTypedReceivedAsync() {
+        return onTypedReceivedAsync;
     }
 
     @Override

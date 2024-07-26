@@ -5,6 +5,7 @@ import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
 import com.github.orbyfied.minem.protocol.play.ServerboundPlayerPositionAndLookPacket;
+import com.github.orbyfied.minem.util.BufferUtil;
 
 @Mapping(id = 0x06, phase = ProtocolPhases.PLAY, primaryName = "ServerboundPlayerPositionAndLook", dataClass = ServerboundPlayerPositionAndLookPacket.class)
 public class ServerboundPlayerPositionAndLookPacket47 {
@@ -19,11 +20,11 @@ public class ServerboundPlayerPositionAndLookPacket47 {
     }
 
     public static void write(ServerboundPlayerPositionAndLookPacket packet, Packet c, UnsafeByteBuf buf) {
-        buf.writeDouble(packet.getX());
-        buf.writeDouble(packet.getY());
-        buf.writeDouble(packet.getZ());
-        buf.writeFloat(packet.getYaw());
-        buf.writeFloat(packet.getPitch());
+        buf.writeDoubleReversed(packet.getX());
+        buf.writeDoubleReversed(packet.getY());
+        buf.writeDoubleReversed(packet.getZ());
+        buf.writeFloatReversed(packet.getYaw());
+        buf.writeFloatReversed(packet.getPitch());
         buf.writeBoolean(packet.isGrounded());
     }
 

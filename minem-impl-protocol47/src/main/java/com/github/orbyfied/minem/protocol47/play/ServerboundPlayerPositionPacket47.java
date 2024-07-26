@@ -17,9 +17,9 @@ public class ServerboundPlayerPositionPacket47 {
     }
 
     public static void write(ServerboundPlayerPositionPacket packet, Packet c, UnsafeByteBuf buf) {
-        buf.writeDouble(packet.getX());
-        buf.writeDouble(packet.getY());
-        buf.writeDouble(packet.getZ());
+        buf.writeDoubleReversed(packet.getX());
+        buf.writeDoubleReversed(packet.getY());
+        buf.writeDoubleReversed(packet.getZ());
         buf.writeBoolean(packet.isGrounded());
     }
 

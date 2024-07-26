@@ -21,6 +21,7 @@ import slatepowered.veru.string.StringReader;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Core services for the Hypixel bot components.
@@ -92,6 +93,14 @@ public class HypixelBot extends ClientComponent {
         return true;
     }
 
+    /**
+     * Try to avoid spam.
+     */
+    public static String makeUnique(String str) {
+        int l = Math.min(10, Math.max(2, str.length() / 7)) + (int) (Math.random() * 2);
+        return str + " #" + Long.toHexString((long) (Math.random() * Long.MAX_VALUE)).toUpperCase().substring(0, l);
+    }
+
     @Override
     protected void resetState() {
 
@@ -108,6 +117,10 @@ public class HypixelBot extends ClientComponent {
 
     public Chain<HypixelChatHandler> onChat() {
         return onChat;
+    }
+
+    public void runCommandAfter(String msg, long delayMillis) {
+        client.getScheduler().getRealTimeExecutor().schedule(() -> chatHandler.sendChatSync(msg), delayMillis, TimeUnit.MILLISECONDS);
     }
 
     // analyze and process the given chat message
@@ -145,7 +158,7 @@ public class HypixelBot extends ClientComponent {
             ignWithoutRankOrRole = null;
         }
 
-        HypixelChat chat = new HypixelChat(channel, ignWithRank, ignWithoutRankOrRole, type, message);
+        HypixelChat chat = new HypixelChat(channel, content, ignWithRank, ignWithoutRankOrRole, type, message);
         onChat.invoker().onChat(chat);
     }
 
@@ -200,6 +213,7 @@ public class HypixelBot extends ClientComponent {
     }
 
     public record HypixelChat(Channel channel,
+                              String content,
                               String ignRanked, String ignStripped,
                               Type type, String message) {
 
@@ -209,16 +223,24 @@ public class HypixelBot extends ClientComponent {
         void onChat(HypixelChat chat);
     }
 
+    public void send(Channel channel, String str) {
+        send(channel, str, true);
+    }
+
     /**
      * Send the given message in the given channel.
      */
-    public void send(Channel channel, String str) {
+    public void send(Channel channel, String str, boolean unique) {
         String cmd = switch (channel) {
             case ALL -> "/ac";
             case PRIVATE -> "/r";
             case GUILD -> "/gc";
             case PARTY -> "/pc";
         };
+
+        if (unique && (channel == Channel.GUILD || channel == Channel.PRIVATE)) {
+            str = makeUnique(str);
+        }
 
         chatHandler.sendChatSync(cmd + " " + str);
     }
@@ -246,19 +268,19 @@ public class HypixelBot extends ClientComponent {
                                     .args(args);
 
                             // check permissions
-                            int rank = props.getAsOr("rank", Number.class, 1).intValue();
+                            int rank = props.getAsOr("rank", Number.class, 0).intValue();
                             if (rank < command.getRank()) {
-                                send(ctx.getChannel(), "u need " + getRank(command.getRank()).name() + "+ to exec");
+                                send(ctx.getChannel(), "u need " + getRank(command.getRank()).name().toLowerCase() + " or higher to exec", true);
                                 return;
                             }
 
                             try {
                                 var res = command.getExecutor().apply(ctx);
                                 if (res != null) {
-                                    send(ctx.getChannel(), (res.isSuccess() ? "" : "err: ") + res.getText());
+                                    send(ctx.getChannel(), (res.isSuccess() ? "" : "err: ") + res.getText(), true);
                                 }
                             } catch (Exception ex) {
-                                send(ctx.getChannel(), "err: " + ex.getMessage());
+                                send(ctx.getChannel(), "err: " + ex.getMessage(), true);
                             }
                         } catch (Exception ex) {
                             ex.printStackTrace();
@@ -268,7 +290,7 @@ public class HypixelBot extends ClientComponent {
 
                 // check for my ign
                 if (message.toLowerCase().contains(selfAccount.getProfileName().toLowerCase())) {
-                    send(chat.channel(), "hi " + chat.ignStripped());
+                    send(chat.channel(), "hi " + chat.ignStripped(), true);
                 }
 
                 return;
@@ -287,7 +309,7 @@ public class HypixelBot extends ClientComponent {
                 // --- set rank
                 int rank = ctx.getSenderProperties().getAsOr("rank", (Number) 0).intValue();
                 if (rank < /* admin */ 4) {
-                    return ctx.failed("u need " + getRank(rank).name() + "+ to set");
+                    return ctx.failed("u need " + getRank(4).name().toLowerCase() + " or higher to set");
                 }
 
                 PermissionRank toSet = getRank(ctx.getArg(1));

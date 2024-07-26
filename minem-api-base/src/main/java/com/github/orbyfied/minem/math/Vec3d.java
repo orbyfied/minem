@@ -26,9 +26,9 @@ public class Vec3d extends Vec3<Double> {
     }
 
     public Vec3d(Vec3<?> other) {
-        this.x = other.getGenericX().intValue();
-        this.y = other.getGenericY().intValue();
-        this.z = other.getGenericZ().intValue();
+        this.x = other.getGenericX().doubleValue();
+        this.y = other.getGenericY().doubleValue();
+        this.z = other.getGenericZ().doubleValue();
     }
 
     public Vec3d copy() { return new Vec3d(x, y, z); }
@@ -44,6 +44,36 @@ public class Vec3d extends Vec3<Double> {
     @Override public Double getGenericX() { return x; }
     @Override public Double getGenericY() { return y; }
     @Override public Double getGenericZ() { return z; }
+
+    public double magnitude() {
+        return Math.sqrt(x * x + y * y + z * z);
+    }
+
+    public Vec3d normalized() {
+        double mag = Math.sqrt(x * x + y * y + z * z);
+        return new Vec3d(x / mag, y / mag, z / mag);
+    }
+
+    @Mutates
+    public Vec3d normalize() {
+        double mag = Math.sqrt(x * x + y * y + z * z);
+        this.x = x / mag;
+        this.y = y / mag;
+        this.z = z / mag;
+        return this;
+    }
+
+    public Vec3d sub(Vec3d v) {
+        return new Vec3d(x - v.x, y - v.y, z - v.z);
+    }
+
+    @Mutates
+    public Vec3d subMut(Vec3d v) {
+        this.x = x - v.x;
+        this.y = y - v.y;
+        this.z = z - v.z;
+        return this;
+    }
 
 }
 

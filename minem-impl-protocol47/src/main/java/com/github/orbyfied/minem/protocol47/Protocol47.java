@@ -25,6 +25,7 @@ public class Protocol47 {
             ClientboundJoinGamePacket47.class,
             ClientboundRespawnPacket47.class,
             ClientboundPositionAndLookPacket47.class,
+            ServerboundPlayerPositionAndLookPacket47.class,
             ServerboundPlayerPositionPacket47.class,
             ServerboundPlayerLookPacket47.class,
             ServerboundPlayerPositionPacket47.class,

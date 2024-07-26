@@ -24,9 +24,9 @@ public abstract class HypixelBotStorage {
 
     // Player Data
     Map<String, Object> defaultPlayerProperties = new HashMap<>();
-    Map<UUID, Map<String, Object>> playerProperties = new HashMap<>();
+    Map<String, Map<String, Object>> playerProperties = new HashMap<>();
 
-    public MapAccess<UUID, Map<String, Object>> allPlayers() {
+    public MapAccess<String, Map<String, Object>> allPlayers() {
         return MapAccess.of(playerProperties);
     }
 
@@ -40,7 +40,7 @@ public abstract class HypixelBotStorage {
     }
 
     public PlayerDataMap forPlayer(UUID uuid) {
-        return process(uuid, new PlayerDataMap(playerProperties.computeIfAbsent(uuid, __ -> new HashMap<>(defaultPlayerProperties)), defaultPlayerProperties()));
+        return process(uuid, new PlayerDataMap(playerProperties.computeIfAbsent(uuid.toString(), __ -> new HashMap<>(defaultPlayerProperties)), defaultPlayerProperties()));
     }
 
     public MapAccess<String, Object> defaultPlayerProperties() {
@@ -53,13 +53,11 @@ public abstract class HypixelBotStorage {
         Map<String, Object> map = new HashMap<>();
         map.put("player-data", playerProperties);
         map.put("default-player-data", defaultPlayerProperties);
-        System.out.println("Saving " + map);
         return map;
     }
 
     public void loadCompactDefault(Map<String, Object> map) {
-        System.out.println("Loading " + map);
-        playerProperties = (Map<UUID, Map<String, Object>>) map.get("player-data");
+        playerProperties = (Map<String, Map<String, Object>>) map.get("player-data");
         defaultPlayerProperties = (Map<String, Object>) map.get("default-player-data");
     }
 

@@ -217,6 +217,13 @@ public abstract class UnsafeByteBuf {
     public final byte getByte(int offset) { return UNSAFE.getByte(this.ptr + offset); }
     public final boolean getBoolean(int offset) { return getByte(offset) > 0; }
 
+    public final long getLongReversed(int offset) { return Long.reverseBytes(UNSAFE.getLong(this.ptr + offset)); }
+    public final int getIntReversed(int offset) { return Integer.reverseBytes(UNSAFE.getInt(this.ptr + offset)); }
+    public final float getFloatReversed(int offset) { return Float.intBitsToFloat(Integer.reverseBytes(UNSAFE.getInt(this.ptr + offset))); }
+    public final double getDoubleReversed(int offset) { return Double.longBitsToDouble(Long.reverseBytes(UNSAFE.getLong(this.ptr + offset))); }
+    public final short getShortReversed(int offset) { return Short.reverseBytes(UNSAFE.getShort(this.ptr + offset)); }
+    public final char getCharReversed(int offset) { return Character.reverseBytes(UNSAFE.getChar(this.ptr + offset)); }
+
     public final long readLong() { checkReadCap(8); var r = getLong(readIndex); readIndex += 8; return r; }
     public final int readInt() { checkReadCap(4); var r = getInt(readIndex); readIndex += 4; return r; }
     public final double readDouble() { checkReadCap(8); var r = getDouble(readIndex); readIndex += 8; return r; }
@@ -225,6 +232,13 @@ public abstract class UnsafeByteBuf {
     public final char readChar() { checkReadCap(2); var r = getChar(readIndex); readIndex += 2; return r; }
     public final byte readByte() { checkReadCap(1); var r = getByte(readIndex); readIndex += 1; return r; }
     public final boolean readBoolean() { checkReadCap(1); return readByte() > 0; }
+
+    public final long readLongReversed() { checkReadCap(8); var r = getLongReversed(readIndex); readIndex += 8; return r; }
+    public final int readIntReversed() { checkReadCap(4); var r = getIntReversed(readIndex); readIndex += 4; return r; }
+    public final double readDoubleReversed() { checkReadCap(8); var r = getDoubleReversed(readIndex); readIndex += 8; return r; }
+    public final float readFloatReversed() { checkReadCap(4); var r = getFloatReversed(readIndex); readIndex += 4; return r; }
+    public final short readShortReversed() { checkReadCap(2); var r = getShortReversed(readIndex); readIndex += 2; return r; }
+    public final char readCharReversed() { checkReadCap(2); var r = getCharReversed(readIndex); readIndex += 2; return r; }
 
     public final void setLong(int offset, long val) { UNSAFE.putLong(this.ptr + offset, val); }
     public final void setInt(int offset, int val) { UNSAFE.putInt(ptr + offset, val); }
@@ -235,6 +249,13 @@ public abstract class UnsafeByteBuf {
     public final void setByte(int o, byte v) { UNSAFE.putByte(ptr + o, v); }
     public final void setBoolean(int o, boolean v) { setByte(o, (byte) (v ? 1 : 0)); }
 
+    public final void setLongReversed(int offset, long val) { UNSAFE.putLong(this.ptr + offset, Long.reverse(val)); }
+    public final void setIntReversed(int offset, int val) { UNSAFE.putInt(ptr + offset, Integer.reverseBytes(val)); }
+    public final void setFloatReversed(int off, float val) { UNSAFE.putFloat(ptr + off, Integer.reverseBytes(Float.floatToIntBits(val))); }
+    public final void setDoubleReversed(int o, double v) { UNSAFE.putDouble(ptr + o, Long.reverseBytes(Double.doubleToLongBits(v))); }
+    public final void setShortReversed(int o, short v) { UNSAFE.putShort(ptr + o, Short.reverseBytes(v)); }
+    public final void setCharReversed(int o, char v) { UNSAFE.putChar(ptr + o, Character.reverseBytes(v)); }
+
     public final void writeLong(long val) { ensureWriteCapacity(8); setLong(writeIndex, val); advWriter(8); }
     public final void writeInt(int val) { ensureWriteCapacity(4); setInt(writeIndex, val); advWriter(4); }
     public final void writeDouble(double val) { ensureWriteCapacity(8); setDouble(writeIndex, val); advWriter(8); }
@@ -243,6 +264,13 @@ public abstract class UnsafeByteBuf {
     public final void writeChar(char val) { ensureWriteCapacity(2); setChar(writeIndex, val); advWriter(2); }
     public final void writeByte(byte val) { ensureWriteCapacity(1); setByte(writeIndex, val); advWriter(1); }
     public final void writeBoolean(boolean val) { ensureWriteCapacity(1); setBoolean(writeIndex, val); advWriter(1); }
+
+    public final void writeLongReversed(long val) { ensureWriteCapacity(8); setLongReversed(writeIndex, val); advWriter(8); }
+    public final void writeIntReversed(int val) { ensureWriteCapacity(4); setIntReversed(writeIndex, val); advWriter(4); }
+    public final void writeDoubleReversed(double val) { ensureWriteCapacity(8); setDoubleReversed(writeIndex, val); advWriter(8); }
+    public final void writeFloatReversed(float val) { ensureWriteCapacity(4); setFloatReversed(writeIndex, val); advWriter(4); }
+    public final void writeShortReversed(short val) { ensureWriteCapacity(2); setShortReversed(writeIndex, val); advWriter(2); }
+    public final void writeCharReversed(char val) { ensureWriteCapacity(2); setCharReversed(writeIndex, val); advWriter(2); }
 
     /**
      * Copy the {@code len} bytes from this buffer at offset {@code offset} into
@@ -302,6 +330,11 @@ public abstract class UnsafeByteBuf {
     protected static final int IO_BUFFER_SIZE = 1024;
 
     /**
+     * How many times to retry an IO operation.
+     */
+    protected static final int IO_RETRIES = 3;
+
+    /**
      * Try to read {@code len} amount of bytes from the stream into
      * this buffer at offset {@code offset}.
      */
@@ -310,8 +343,18 @@ public abstract class UnsafeByteBuf {
             int remaining = len;
             byte[] buffer = new byte[IO_BUFFER_SIZE];
             long addr = getAddressOfObject(buffer) + BASE_OFF_BYTE_ARRAY;
+            int t = IO_RETRIES;
             while (remaining > 0) {
                 int r = stream.read(buffer, 0, Math.min(remaining, IO_BUFFER_SIZE));
+                if (r == -1) {
+                    if (t > 0) {
+                        t--;
+                        continue;
+                    }
+
+                    throw new IllegalStateException("Failed to read " + Math.min(remaining, IO_BUFFER_SIZE) + " more bytes from stream, EOF");
+                }
+
                 remaining -= r;
 
                 setBytes(offset, addr, 0, r);
@@ -334,8 +377,18 @@ public abstract class UnsafeByteBuf {
             int remaining = len;
             byte[] buffer = new byte[IO_BUFFER_SIZE];
             long addr = getAddressOfObject((Object) buffer) + BASE_OFF_BYTE_ARRAY;
+            int t = IO_RETRIES;
             while (remaining > 0) {
                 int r = stream.read(buffer, 0, Math.min(remaining, IO_BUFFER_SIZE));
+                if (r == -1) {
+                    if (t > 0) {
+                        t--;
+                        continue;
+                    }
+
+                    throw new IllegalStateException("Failed to read " + Math.min(remaining, IO_BUFFER_SIZE) + " more bytes from stream, EOF");
+                }
+
                 remaining -= r;
 
                 ensureWriteCapacity(r);

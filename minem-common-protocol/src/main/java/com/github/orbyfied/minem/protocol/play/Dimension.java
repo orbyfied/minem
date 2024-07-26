@@ -22,7 +22,7 @@ public enum Dimension {
             case -1 -> NETHER;
             case  0 -> OVERWORLD;
             case  1 -> END;
-            default -> { throw new IllegalArgumentException(); }
+            default -> null;
         };
     }
 

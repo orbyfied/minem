@@ -1,5 +1,7 @@
 package com.github.orbyfied.minem.buffer;
 
+import slatepowered.veru.reflect.UnsafeUtil;
+
 import java.lang.ref.Cleaner;
 
 public class Memory {
@@ -27,5 +29,11 @@ public class Memory {
 
         return in;
     }
+
+    public static double reverseByteOrder(double d) {
+        return Double.longBitsToDouble(Long.reverseBytes(Double.doubleToLongBits(d)));
+    }
+
+
 
 }
