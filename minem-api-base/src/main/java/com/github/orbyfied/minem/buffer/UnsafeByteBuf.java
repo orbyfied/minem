@@ -1,9 +1,12 @@
 package com.github.orbyfied.minem.buffer;
 
+import lombok.RequiredArgsConstructor;
 import slatepowered.veru.misc.Throwables;
 import slatepowered.veru.reflect.UnsafeUtil;
 import sun.misc.Unsafe;
 
+import java.io.DataInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.invoke.MethodHandle;
@@ -542,10 +545,21 @@ public abstract class UnsafeByteBuf {
         }
     }
 
+    public final byte[] readBytes(byte[] bytes) {
+        return readBytes(bytes, 0, bytes.length);
+    }
+
+    public final byte[] readBytes(byte[] bytes, int offset, int len) {
+        checkReadCap(len);
+        getBytes(readIndex, bytes, offset, len);
+        readIndex += len;
+        return bytes;
+    }
+
     public final byte[] readBytes(int len) {
         byte[] bytes = new byte[len];
         checkReadCap(len);
-        getBytes(readIndex, bytes);
+        getBytes(readIndex, bytes, 0, len);
         readIndex += len;
         return bytes;
     }
@@ -560,6 +574,25 @@ public abstract class UnsafeByteBuf {
         ensureWriteCapacity(len);
         setBytes(writeIndex, bytes, off, len);
         advWriter(len);
+    }
+
+    /**
+     * Create a new input stream which reads from the current read offset
+     * to the write offset.
+     *
+     * @return The input stream.
+     */
+    public InputStream readingInputStream() {
+        return new BufReadingInputStream(this);
+    }
+
+    /**
+     * Create a new input stream which writes from the current write offset.
+     *
+     * @return The input stream.
+     */
+    public OutputStream writingOutputStream() {
+        return new BufWritingOutputStream(this);
     }
 
     /**
@@ -612,6 +645,70 @@ public abstract class UnsafeByteBuf {
                 ", capacity=" + capacity +
                 ", pointer=" + Long.toHexString(pointer()) +
                 ')';
+    }
+
+    /** Reads from a buffer. */
+    @RequiredArgsConstructor
+    static class BufReadingInputStream extends InputStream {
+
+        final UnsafeByteBuf buf;
+
+        @Override
+        public int read() throws IOException {
+            return buf.readIndex < buf.writeIndex ? buf.readByte() : -1;
+        }
+
+        @Override
+        public int read(byte[] b) throws IOException {
+            return read(b, 0, b.length);
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            len = Math.min(len, buf.remainingWritten());
+            buf.readBytes(b, off, len);
+            return len;
+        }
+
+        @Override
+        public int readNBytes(byte[] b, int off, int len) throws IOException {
+            if (buf.remainingWritten() < len)
+                throw new IllegalArgumentException("not enough bytes lol");
+            buf.readBytes(b, off, len);
+            return len;
+        }
+
+        @Override
+        public byte[] readNBytes(int len) throws IOException {
+            byte[] buffer = new byte[len];
+            readNBytes(buffer, 0, len);
+            return buffer;
+        }
+
+        @Override
+        public byte[] readAllBytes() throws IOException {
+            byte[] buffer = new byte[buf.remainingWritten()];
+            return buf.readBytes(buffer);
+        }
+
+    }
+
+    /** Writes to a buffer. */
+    @RequiredArgsConstructor
+    static class BufWritingOutputStream extends OutputStream {
+
+        final UnsafeByteBuf buf;
+
+        @Override
+        public void write(int b) throws IOException {
+            buf.writeByte((byte) b);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            buf.writeBytes(b, off, len);
+        }
+
     }
 
 }

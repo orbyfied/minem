@@ -18,7 +18,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import slatepowered.veru.string.StringReader;
 
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -45,9 +44,6 @@ public class HypixelBot extends ClientComponent {
     // All registered commands
     private final Map<String, HypixelCommand> commandMap = new HashMap<>();
 
-    // Random messages to send when the bot joins
-    String[] randomJoinMessages = new String[] { "hi" };
-
     /* Events */
     final Chain<HypixelChatHandler> onChat = new Chain<>(HypixelChatHandler.class);
 
@@ -71,16 +67,6 @@ public class HypixelBot extends ClientComponent {
                                 throwable.printStackTrace();
                             }
                         });
-            }
-        });
-
-        // listen to login success
-        client.find(ClientAuthenticator.class).onLoginComplete().addLast((client1, authenticator, acknowledgedPacket) -> {
-            if (randomJoinMessages.length > 0) {
-                client.getScheduler().scheduleRealDelayed(() -> {
-                    String message = randomJoinMessages[RANDOM.nextInt(randomJoinMessages.length)];
-                    chatHandler.sendChatSync("/gc " + message);
-                }, Duration.ofSeconds(2));
             }
         });
 
@@ -184,11 +170,6 @@ public class HypixelBot extends ClientComponent {
         return null;
     }
 
-    public HypixelBot randomJoinMessages(String... randomJoinMessages) {
-        this.randomJoinMessages = randomJoinMessages;
-        return this;
-    }
-
     /**
      * The type of the message.
      */
@@ -238,11 +219,89 @@ public class HypixelBot extends ClientComponent {
             case PARTY -> "/pc";
         };
 
+        // sanitize and make unique
         if (unique && (channel == Channel.GUILD || channel == Channel.PRIVATE)) {
             str = makeUnique(str);
         }
 
+        str = str.replaceAll("(www|http:|https:)+[^\\s]+[\\w]", "(some url)");
+        str = str.replace(".", " ");
+
         chatHandler.sendChatSync(cmd + " " + str);
+    }
+
+    /**
+     * Send the given message in the given channel.
+     */
+    public void send(SendableResult result) {
+        if (result.message() != null) {
+            send(result.channel(), result.message(), result.unique());
+        }
+    }
+
+    public record SendableResult(boolean success, Channel channel, String message, boolean unique) {
+
+    }
+
+    /**
+     * The console profile.
+     */
+    @Getter
+    MinecraftProfile consoleProfile = new MinecraftProfile().username("*").uuid(new UUID(0, 0));
+
+    /**
+     * The console profile properties.
+     */
+    @Getter
+    MapAccess<String, Object> consoleProperties = new MapAccess<>(new HashMap<>(), null);
+
+    public CompletableFuture<SendableResult> exec(HypixelChat chat, String str) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String[] split = str.split(" ");
+                String alias = split[0];
+                HypixelCommand command = commandMap.get(alias);
+                if (command == null) {
+                    return null;
+                }
+
+                String[] args = Arrays.copyOfRange(split, 1, split.length);
+                MapAccess<String, Object> props;
+                MinecraftProfile profile;
+                if (chat.ignStripped.equalsIgnoreCase("*")) {
+                    profile = consoleProfile;
+                    props = consoleProperties;
+                    consoleProperties.set("rank", ranks.length - 1);
+                } else {
+                    profile = MinecraftProfile.CACHE.fetchByName(chat.ignStripped());
+                    props = storage.forPlayer(profile.getUUID());
+                }
+
+                HypixelCommandContext ctx = new HypixelCommandContext(this, chat.channel(), profile, props)
+                        .args(args);
+
+                // check permissions
+                int rank = props.getAsOr("rank", Number.class, 0).intValue();
+                if (rank < command.getRank()) {
+                    return new SendableResult(false, ctx.getChannel(), "u need " + getRank(command.getRank()).name().toLowerCase() + " or higher to exec", true);
+                }
+
+                try {
+                    var res = command.getExecutor().apply(ctx);
+                    if (res != null) {
+                        return new SendableResult(res.isSuccess(), ctx.getChannel(), (res.isSuccess() ? "" : "err: ") + res.getText(), true);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    return new SendableResult(false, ctx.getChannel(), "err: " + ex, true);
+                }
+
+                return new SendableResult(true, ctx.getChannel(), null, false);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return new SendableResult(false, chat.channel(), "internal error", true);
+            }
+        });
     }
 
     private void init() {
@@ -252,40 +311,7 @@ public class HypixelBot extends ClientComponent {
                 // check for command execution
                 String message = chat.message().strip();
                 if (message.startsWith("!")) {
-                    CompletableFuture.runAsync(() -> {
-                        try {
-                            String[] split = message.substring(1).split(" ");
-                            String alias = split[0];
-                            HypixelCommand command = commandMap.get(alias);
-                            if (command == null) {
-                                return;
-                            }
-
-                            String[] args = Arrays.copyOfRange(split, 1, split.length);
-                            MinecraftProfile profile = MinecraftProfile.GLOBAL_CACHE.fetchByName(chat.ignStripped());
-                            MapAccess<String, Object> props = storage.forPlayer(profile.getUUID());
-                            HypixelCommandContext ctx = new HypixelCommandContext(this, chat.channel(), profile, props)
-                                    .args(args);
-
-                            // check permissions
-                            int rank = props.getAsOr("rank", Number.class, 0).intValue();
-                            if (rank < command.getRank()) {
-                                send(ctx.getChannel(), "u need " + getRank(command.getRank()).name().toLowerCase() + " or higher to exec", true);
-                                return;
-                            }
-
-                            try {
-                                var res = command.getExecutor().apply(ctx);
-                                if (res != null) {
-                                    send(ctx.getChannel(), (res.isSuccess() ? "" : "err: ") + res.getText(), true);
-                                }
-                            } catch (Exception ex) {
-                                send(ctx.getChannel(), "err: " + ex.getMessage(), true);
-                            }
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
-                    });
+                    exec(chat, message.substring(1)).thenAccept(this::send);
                 }
 
                 // check for my ign
@@ -301,7 +327,7 @@ public class HypixelBot extends ClientComponent {
         register(new HypixelCommand().name("rank").rank(0).executor(ctx -> {
             ctx.assertArgs(1);
 
-            MinecraftProfile target = MinecraftProfile.GLOBAL_CACHE.fetchByName(ctx.getArg(0));
+            MinecraftProfile target = MinecraftProfile.CACHE.fetchByName(ctx.getArg(0));
             var targetData = storage.forPlayer(target.getUUID());
 
             boolean set = false;

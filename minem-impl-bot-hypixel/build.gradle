@@ -18,4 +18,8 @@ dependencies {
     testImplementation 'com.ezylang:EvalEx:3.3.0'
     testImplementation 'net.hypixel:hypixel-api-transport-apache:4.3'
     testImplementation 'org.apache.httpcomponents:httpclient:4.5.14'
+    testImplementation 'org.jline:jline:3.25.1'
+    testImplementation 'org.jline:jline-reader:3.25.1'
+    testImplementation 'org.jline:jline-terminal-jansi:3.25.1'
+    testImplementation 'org.fusesource.jansi:jansi:2.4.0'
 }

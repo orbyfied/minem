@@ -12,6 +12,8 @@ import java.util.List;
 
 /**
  * Utilities for working with text components sent over the network.
+ *
+ * Uses https://github.com/KyoriPowered/adventure.
  */
 public final class ProtocolTextComponents {
 

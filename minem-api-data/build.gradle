@@ -13,4 +13,6 @@ dependencies {
     api "net.kyori:adventure-text-serializer-legacy:4.17.0"
     api "net.kyori:adventure-text-serializer-plain:4.17.0"
     api "net.kyori:adventure-text-serializer-ansi:4.17.0"
+
+    api "dev.dewy:nbt:1.5.1"
 }

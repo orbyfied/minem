@@ -11,7 +11,7 @@ import java.net.http.HttpResponse;
  */
 public interface AccountContext {
 
-    static AccountContext create() {
+    static AccountContext create(boolean debug) {
         return new AccountContext() {
             final HttpClient client = MinecraftAccount.buildMSACompatibleHttpClient(null);
 
@@ -19,10 +19,17 @@ public interface AccountContext {
             public HttpClient getHttpClient() {
                 return client;
             }
+
+            @Override
+            public boolean isDebugMode() {
+                return debug;
+            }
         };
     }
 
-    boolean DEBUG_MODE = true;
+    static AccountContext create() {
+        return create(false);
+    }
 
     /**
      * Get the HTTP client to be used for authentication requests.
@@ -31,9 +38,16 @@ public interface AccountContext {
      */
     HttpClient getHttpClient();
 
+    /**
+     * Check if this account context is in debug mode.
+     *
+     * @return Whether it is in debug mode.
+     */
+    boolean isDebugMode();
+
     // verify and log the given response
     default  <T> HttpResponse<T> verifyResponse(HttpResponse<T> response) {
-        if (DEBUG_MODE) {
+        if (isDebugMode()) {
             System.out.println(ANSI.CYAN + "[*] Received Response :" + response.statusCode() + " to " + response.uri() + ANSI.RESET);
             HttpUtil.trace(response);
             String body = response.body().toString();

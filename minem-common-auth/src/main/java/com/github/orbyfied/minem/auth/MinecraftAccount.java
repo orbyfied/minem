@@ -262,7 +262,7 @@ public class MinecraftAccount extends SecretStore {
 
                 this.profileName = name;
                 this.profileUUID = uuid;
-                var profileCache = MinecraftProfile.GLOBAL_CACHE;
+                var profileCache = MinecraftProfile.CACHE;
                 this.profile = profileCache.setName(profileCache.referenceUUID(uuid), profileName);
 
                 // parse skins and capes

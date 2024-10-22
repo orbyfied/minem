@@ -4,7 +4,8 @@ import java.util.UUID;
 
 public class MinecraftProfile {
 
-    public static MinecraftProfileCache GLOBAL_CACHE = new MinecraftProfileCache();
+    /** Global profile cache. */
+    public static MinecraftProfileCache CACHE = new MinecraftProfileCache();
 
     /**
      * The UUID.
@@ -24,12 +25,12 @@ public class MinecraftProfile {
         return name;
     }
 
-    protected MinecraftProfile uuid(UUID uuid) {
+    public MinecraftProfile uuid(UUID uuid) {
         this.uuid = uuid;
         return this;
     }
 
-    protected MinecraftProfile username(String username) {
+    public MinecraftProfile username(String username) {
         this.name = username;
         return this;
     }

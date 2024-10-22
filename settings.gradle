@@ -7,4 +7,5 @@ include 'minem-common-auth'
 include 'minem-api-data'
 include 'minem-impl-protocol47'
 include 'minem-impl-bot-hypixel'
+include 'test-yeast-hypixel-chat-bot'
 

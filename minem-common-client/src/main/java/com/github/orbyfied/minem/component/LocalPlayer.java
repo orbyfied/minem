@@ -11,15 +11,15 @@ import com.github.orbyfied.minem.math.Vec2f;
 import com.github.orbyfied.minem.math.Vec3d;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.play.*;
-import lombok.Getter;
 import lombok.ToString;
+
+import java.util.List;
 
 import static com.github.orbyfied.minem.protocol.play.ClientboundPositionAndLookPacket.*;
 
 /**
  * Tracks entity information about the client (local) player.
  */
-@Getter
 @ToString
 public class LocalPlayer extends ClientComponent implements IncomingPacketListener, Entity {
 
@@ -36,7 +36,18 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
     volatile Boolean forceGrounded; // The value to force grounded to
     volatile float flySpeed;        // The fly speed set by the server
 
+    volatile long lastTransformUpdate = Long.MAX_VALUE; // The epochMS time of the last manual or server update to position or look sent to the server
+
     final Chain<FlyUpdateHandler> onFlyUpdate = new Chain<>(FlyUpdateHandler.class);
+    final Chain<PositionInitializedHandler> onPositionInitialized = new Chain<>(PositionInitializedHandler.class);
+
+    // Timings, in ticks, 0 to disable
+    // Period = how many ticks per run,
+    // Hit = the tick in that period on which the run should hit
+    int periodSendPosition = 0;
+    int hitSendPosition = 10;
+    int periodSendGrounded = 10;
+    int hitSendGrounded = 0;
 
     @Override
     protected boolean attach(MinecraftClient client) {
@@ -47,12 +58,30 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
         return true;
     }
 
+    /* Shared packets used in the tick loop */
+    Packet sharedPacketPlayerGrounded;
+    Packet sharedPacketPlayerPosition;
+
     // called every 50ms
     private void onTick(MinecraftClient client) {
         int tick = client.tickCount();
-        if (tick % 20 == 0 && isPositionInitialized()) {
+        if (periodSendPosition != 0 && tick % periodSendPosition == hitSendPosition && isPositionInitialized() && System.currentTimeMillis() - lastTransformUpdate >= 1000) {
             // send absolute data packet to server
-            client.sendSync(client.createPacket(new ServerboundPlayerPositionPacket(position.x, position.y, position.z, effectivelyGrounded())));
+            if (sharedPacketPlayerPosition == null) sharedPacketPlayerPosition = client.createPacket(new ServerboundPlayerPositionPacket());
+            ServerboundPlayerPositionPacket data = sharedPacketPlayerPosition.data();
+            data.setX(position.x);
+            data.setY(position.y);
+            data.setZ(position.z);
+            data.setGrounded(effectivelyGrounded());
+            client.sendSync(sharedPacketPlayerPosition);
+        }
+
+        if (periodSendGrounded != 0 && tick % periodSendGrounded == hitSendGrounded && isPositionInitialized() && System.currentTimeMillis() - lastTransformUpdate >= 250) {
+            // send flying/stationary packet to server
+            if (sharedPacketPlayerGrounded == null) sharedPacketPlayerGrounded = client.createPacket(new ServerboundPlayerGroundedPacket());
+            ServerboundPlayerGroundedPacket data = sharedPacketPlayerGrounded.data();
+            data.setGrounded(effectivelyGrounded());
+            client.sendSync(sharedPacketPlayerGrounded);
         }
     }
 
@@ -83,8 +112,12 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
         if ((flags & FLAG_REL_YAW) > 0)   yaw += packet.getYaw();     else yaw =   packet.getYaw();
         if ((flags & FLAG_REL_PITCH) > 0) pitch += packet.getPitch(); else pitch = packet.getPitch();
 
+        boolean initialized = this.position == null;
         this.position = pos;
-//        client.sendSync(client.createPacket(new ServerboundPlayerPositionAndLookPacket(position.x, position.y, position.z, yaw, pitch, effectivelyGrounded())));
+        this.lastTransformUpdate = System.currentTimeMillis();
+        if (initialized) {
+            onPositionInitialized.invoker().onPositionInitialized(this, pos);
+        }
     }
 
     @Override
@@ -95,6 +128,7 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
         canFly = false;
         flying = false;
         grounded = false;
+        lastTransformUpdate = Long.MAX_VALUE;
     }
 
     // get or create the position object
@@ -185,7 +219,7 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
      */
     public void moveInstant(Vec3d destination) {
         this.position = destination;
-        client.sendSync(client.createPacket(new ServerboundPlayerPositionPacket(destination.x, destination.y, destination.z, effectivelyGrounded())));
+        updatePosition();
     }
 
     /**
@@ -195,7 +229,7 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
         this.position = destination;
         this.yaw = yaw;
         this.pitch = pitch;
-        client.sendSync(client.createPacket(new ServerboundPlayerPositionAndLookPacket(destination.x, destination.y, destination.z, yaw, pitch, effectivelyGrounded())));
+        updatePositionAndLook();
     }
 
     /**
@@ -204,19 +238,22 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
     public void lookInstant(float yaw, float pitch) {
         this.yaw = yaw;
         this.pitch = pitch;
-        client.sendSync(client.createPacket(new ServerboundPlayerLookPacket(yaw, pitch, effectivelyGrounded())));
+        updateLook();
     }
 
     public void updatePositionAndLook() {
         client.sendSync(client.createPacket(new ServerboundPlayerPositionAndLookPacket(position.x, position.y, position.z, yaw, pitch, effectivelyGrounded())));
+        this.lastTransformUpdate = System.currentTimeMillis();
     }
 
     public void updatePosition() {
         client.sendSync(client.createPacket(new ServerboundPlayerPositionPacket(position.x, position.y, position.z, effectivelyGrounded())));
+        this.lastTransformUpdate = System.currentTimeMillis();
     }
 
     public void updateLook() {
         client.sendSync(client.createPacket(new ServerboundPlayerLookPacket(yaw, pitch, effectivelyGrounded())));
+        this.lastTransformUpdate = System.currentTimeMillis();
     }
 
     public Vec2f getYawAndPitch() {
@@ -245,9 +282,86 @@ public class LocalPlayer extends ClientComponent implements IncomingPacketListen
         setYawAndPitch(MinecraftRotation.yawAndPitchFromLookVector(lookVec));
     }
 
+    public Chain<PositionInitializedHandler> onPositionInitialized() {
+        return onPositionInitialized;
+    }
+
+    @Override
+    public int getEntityID() {
+        return entityID;
+    }
+
+    @Override
+    public Vec3d getPosition() {
+        return position;
+    }
+
+    @Override
+    public float getPitch() {
+        return pitch;
+    }
+
+    @Override
+    public float getYaw() {
+        return yaw;
+    }
+
+    public Gamemode getGamemode() {
+        return gamemode;
+    }
+
+    public Dimension getDimension() {
+        return dimension;
+    }
+
+    public float getFlySpeed() {
+        return flySpeed;
+    }
+
     // Event Handler
     public interface FlyUpdateHandler {
         void onFlyUpdate(LocalPlayer localPlayer, Boolean canFlyChange, Boolean flyingChange, Float flySpeedChange);
+    }
+
+    // Event Handler
+    public interface PositionInitializedHandler {
+        void onPositionInitialized(LocalPlayer localPlayer, Vec3d position);
+    }
+
+    public int periodSendPosition() {
+        return periodSendPosition;
+    }
+
+    public LocalPlayer periodSendPosition(int periodSendPosition) {
+        this.periodSendPosition = periodSendPosition;
+        return this;
+    }
+
+    public int hitTickSendPosition() {
+        return hitSendPosition;
+    }
+
+    public LocalPlayer hitTickSendPosition(int hitTickSendPosition) {
+        this.hitSendPosition = hitTickSendPosition;
+        return this;
+    }
+
+    public int periodSendGrounded() {
+        return periodSendGrounded;
+    }
+
+    public LocalPlayer periodSendGrounded(int periodSendGrounded) {
+        this.periodSendGrounded = periodSendGrounded;
+        return this;
+    }
+
+    public int hitTickSendGrounded() {
+        return hitSendGrounded;
+    }
+
+    public LocalPlayer hitTickSendGrounded(int hitTickSendGrounded) {
+        this.hitSendGrounded = hitTickSendGrounded;
+        return this;
     }
 
 }

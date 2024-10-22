@@ -63,17 +63,19 @@ public class Vec3d extends Vec3<Double> {
         return this;
     }
 
-    public Vec3d sub(Vec3d v) {
-        return new Vec3d(x - v.x, y - v.y, z - v.z);
-    }
+    public Vec3d sub(Vec3d v) { return new Vec3d(x - v.x, y - v.y, z - v.z); }
+    public Vec3d add(Vec3d v) { return new Vec3d(x + v.x, y + v.y, z + v.z); }
+    public Vec3d mul(Vec3d v) { return new Vec3d(x * v.x, y * v.y, z * v.z); }
+    public Vec3d div(Vec3d v) { return new Vec3d(x / v.x, y / v.y, z / v.z); }
+    public Vec3d mul(double c) { return new Vec3d(x * c, y * c, z * c); }
+    public Vec3d div(double c) { return new Vec3d(x / c, y / c, z / c); }
 
-    @Mutates
-    public Vec3d subMut(Vec3d v) {
-        this.x = x - v.x;
-        this.y = y - v.y;
-        this.z = z - v.z;
-        return this;
-    }
+    @Mutates public Vec3d subMut(Vec3d v) { this.x = x - v.x; this.y = y - v.y; this.z = z - v.z; return this; }
+    @Mutates public Vec3d addMut(Vec3d v) { this.x = x + v.x; this.y = y + v.y; this.z = z + v.z; return this; }
+    @Mutates public Vec3d mulMut(Vec3d v) { this.x = x * v.x; this.y = y * v.y; this.z = z * v.z; return this; }
+    @Mutates public Vec3d divMut(Vec3d v) { this.x = x / v.x; this.y = y / v.y; this.z = z / v.z; return this; }
+    @Mutates public Vec3d mulMut(double c) { this.x = x * c; this.y = y * c; this.z = z * c; return this; }
+    @Mutates public Vec3d divMut(double c) { this.x = x / c; this.y = y / c; this.z = z / c; return this; }
 
 }
 

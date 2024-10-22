@@ -555,82 +555,87 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                 byte[] compressedPacket = new byte[1024 * 16];
 
                 while (!socket.isClosed() && socket.isConnected()) {
-                    InputStream stream = getInputStream();
-                    buf.reset();
+                    try {
+                        InputStream stream = getInputStream();
+                        buf.reset();
 
-                    // check if compression is set, then decide
-                    // how to read packet and data length
-                    if (compressionThreshold != -1) {
-                        int packetLength = ProtocolIO.readVarIntFromStream(stream);
-                        int decompressedDataLength = ProtocolIO.readVarIntFromStream(stream);
-                        int viSizeDataLength = ProtocolIO.lengthVarInt(decompressedDataLength);
-                        int compressedDataLength = packetLength - viSizeDataLength;
+                        // check if compression is set, then decide
+                        // how to read packet and data length
+                        if (compressionThreshold != -1) {
+                            int packetLength = ProtocolIO.readVarIntFromStream(stream);
+                            int decompressedDataLength = ProtocolIO.readVarIntFromStream(stream);
+                            int viSizeDataLength = ProtocolIO.lengthVarInt(decompressedDataLength);
+                            int compressedDataLength = packetLength - viSizeDataLength;
 
-                        if (decompressedDataLength == 0) {
-                            // uncompressed packet
-                            buf.writeFrom(stream, compressedDataLength);
-                        } else {
-                            // compressed packet
-                            compressedPacket = Memory.ensureByteArrayCapacity(compressedPacket, compressedDataLength);
-                            int readDataLength = 0;
-                            while (readDataLength < compressedDataLength) {
-                                readDataLength += stream.read(compressedPacket, readDataLength, compressedDataLength - readDataLength);
+                            if (decompressedDataLength == 0) {
+                                // uncompressed packet
+                                buf.writeFrom(stream, compressedDataLength);
+                            } else {
+                                // compressed packet
+                                compressedPacket = Memory.ensureByteArrayCapacity(compressedPacket, compressedDataLength);
+                                int readDataLength = 0;
+                                while (readDataLength < compressedDataLength) {
+                                    readDataLength += stream.read(compressedPacket, readDataLength, compressedDataLength - readDataLength);
+                                }
+
+                                synchronized (inflater) {
+                                    buf.ensureWriteCapacity(decompressedDataLength);
+                                    inflater.reset();
+                                    inflater.setInput(compressedPacket, 0, compressedDataLength);
+                                    inflater.inflate(buf.nioReference());
+                                }
                             }
+                        } else {
+                            int dataLength = ProtocolIO.readVarIntFromStream(stream);
+                            buf.writeFrom(stream, dataLength);
+                        }
 
-                            synchronized (inflater) {
-                                buf.ensureWriteCapacity(decompressedDataLength);
-                                inflater.reset();
-                                inflater.setInput(compressedPacket, 0, compressedDataLength);
-                                inflater.inflate(buf.nioReference());
+                        ProtocolPhase phase = this.state.getPhase();
+                        int packetID = buf.readVarInt();
+                        PacketMapping mapping = protocol
+                                .forPhase(phase)
+                                .getClientboundPacketMapping(packetID);
+                        if (mapping != null) {
+                            packet = mapping.createPacketContainerWithData(this);
+                            mapping.readPacketData(packet, buf);
+
+                            packet.source(this);
+                            packet.set(Packet.INBOUND);
+                        } else {
+                            // create unknown packet
+                            mapping = UnknownPacket.CLIENTBOUND_MAPPING;
+                            packet = unknownPacketContainer;
+                            unknownPacket.buffer(buf);
+                            packet.networkId = packetID;
+                            packet.phase = phase;
+                            packet.set(Packet.INBOUND);
+                            packet.clear(Packet.CANCEL);
+                        }
+
+                        // call event chains
+                        var h = onTypedReceived.orNull(packet.getMapping());
+                        if (h != null) {
+                            h.invoker().onPacket(packet);
+                            if (packet.check(Packet.CANCEL)) {
+                                continue;
                             }
                         }
-                    } else {
-                        int dataLength = ProtocolIO.readVarIntFromStream(stream);
-                        buf.writeFrom(stream, dataLength);
-                    }
 
-                    ProtocolPhase phase = this.state.getPhase();
-                    int packetID = buf.readVarInt();
-                    PacketMapping mapping = protocol
-                            .forPhase(phase)
-                            .getClientboundPacketMapping(packetID);
-                    if (mapping != null) {
-                        packet = mapping.createPacketContainerWithData(this);
-                        mapping.readPacketData(packet, buf);
-
-                        packet.source(this);
-                        packet.set(Packet.INBOUND);
-                    } else {
-                        // create unknown packet
-                        mapping = UnknownPacket.CLIENTBOUND_MAPPING;
-                        packet = unknownPacketContainer;
-                        unknownPacket.buffer(buf);
-                        packet.networkId = packetID;
-                        packet.phase = phase;
-                        packet.set(Packet.INBOUND);
-                        packet.clear(Packet.CANCEL);
-                    }
-
-                    // call event chains
-                    var h = onTypedReceived.orNull(packet.getMapping());
-                    if (h != null) {
-                        h.invoker().onPacket(packet);
+                        onPacketReceived.invoker().onPacket(packet);
                         if (packet.check(Packet.CANCEL)) {
                             continue;
                         }
-                    }
 
-                    onPacketReceived.invoker().onPacket(packet);
-                    if (packet.check(Packet.CANCEL)) {
-                        continue;
-                    }
+                        onPacket.invoker().onPacket(packet);
+                        submitAsyncEvent(packet);
 
-                    onPacket.invoker().onPacket(packet);
-                    submitAsyncEvent(packet);
-
-                    // release buffer from packet after being handled
-                    if (packet.isUnknown()) {
-                        unknownPacket.buffer(null);
+                        // release buffer from packet after being handled
+                        if (packet.isUnknown()) {
+                            unknownPacket.buffer(null);
+                        }
+                    } catch (Exception ex) {
+//                        ex.printStackTrace();
+                        Throwables.sneakyThrow(ex); // todo error handling
                     }
                 }
             }

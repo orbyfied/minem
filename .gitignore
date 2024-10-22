@@ -8,6 +8,8 @@ run/
 /c
 hs_err_*
 
+test-yeast-hypixel-chat-bot/
+
 ### SECURITY ###
 /gradle.properties
 /secrets.properties

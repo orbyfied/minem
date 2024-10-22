@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 
 public class ProtocolIO {
 
@@ -102,7 +103,7 @@ public class ProtocolIO {
     public static int readVarIntFromStream(InputStream stream) throws IOException {
         return readVarInt(() -> {
             int r = stream.read();
-            int t = 3;
+            int t = 4;
             while (r == -1 && t > 0) {
                 r = stream.read();
                 t--;

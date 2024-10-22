@@ -95,8 +95,9 @@ public class Packet {
         return (C) context;
     }
 
-    public Object data() {
-        return data;
+    @SuppressWarnings("unchecked")
+    public <T> T data() {
+        return (T) data;
     }
 
     @SuppressWarnings("unchecked")
