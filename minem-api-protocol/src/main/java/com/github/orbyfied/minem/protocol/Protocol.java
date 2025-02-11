@@ -35,6 +35,11 @@ public class Protocol implements PacketRegistry {
     ProtocolPhaseSpecification[] specsByPhaseOrdinal = new ProtocolPhaseSpecification[0];
 
     /**
+     * The protocol resources added to this protocol.
+     */
+    final Map<ProtocolResource<?>, Object> resources = new HashMap<>();
+
+    /**
      * The default packet handlers for this protocol.
      */
     @Getter
@@ -129,6 +134,43 @@ public class Protocol implements PacketRegistry {
         }
 
         return spec;
+    }
+
+    /**
+     * Register the given protocol resource with the given key.
+     */
+    public <T> Protocol with(ProtocolResource<T> key, T value) {
+        resources.put(key, value);
+        return this;
+    }
+
+    /**
+     * Get a protocol resource by the given key or null if absent.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T getResource(ProtocolResource<T> key) {
+        return (T) resources.get(key);
+    }
+
+    /**
+     * Optionally get a protocol resource by the given key.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> Optional<T> optionalResource(ProtocolResource<T> key) {
+        return Optional.ofNullable((T) resources.get(key));
+    }
+
+    /**
+     * Require a protocol resource by the given key.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T requireResource(ProtocolResource<T> key) {
+        T res = (T) resources.get(key);
+        if (res == null) {
+            throw new IllegalStateException("A protocol resource by key " + key.name() + " of type " + key.klass().getSimpleName() + " is required");
+        }
+
+        return res;
     }
 
     @Override

@@ -8,7 +8,7 @@ import com.github.orbyfied.minem.exception.ClientReadException;
 import com.github.orbyfied.minem.protocol.login.ClientboundLoginDisconnectPacket;
 import com.github.orbyfied.minem.protocol.login.ClientboundSetCompressionPacket;
 import com.github.orbyfied.minem.protocol.handshake.ServerboundHandshakePacket;
-import com.github.orbyfied.minem.protocol.play.ClientboundDisconnectPacket;
+import com.github.orbyfied.minem.protocol.play.ClientboundPlayDisconnectPacket;
 import com.github.orbyfied.minem.protocol.play.ClientboundKeepAlivePacket;
 import com.github.orbyfied.minem.protocol.play.ServerboundKeepAlivePacket;
 import com.github.orbyfied.minem.protocol.*;
@@ -104,6 +104,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
 
     // Used by send(Packet) synchronized on deflater
     byte[] compressedBytes = new byte[1024 * 16];
+    byte[] compressedReadPacket = new byte[1024 * 16];
 
     // The pool of write buffers
     FastThreadLocal<UnsafeByteBuf> writeBufferPool = new FastThreadLocal<>();
@@ -552,8 +553,6 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                     continue;
                 }
 
-                byte[] compressedPacket = new byte[1024 * 16];
-
                 while (!socket.isClosed() && socket.isConnected()) {
                     try {
                         InputStream stream = getInputStream();
@@ -572,16 +571,16 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                                 buf.writeFrom(stream, compressedDataLength);
                             } else {
                                 // compressed packet
-                                compressedPacket = Memory.ensureByteArrayCapacity(compressedPacket, compressedDataLength);
+                                compressedReadPacket = Memory.ensureByteArrayCapacity(compressedReadPacket, compressedDataLength);
                                 int readDataLength = 0;
                                 while (readDataLength < compressedDataLength) {
-                                    readDataLength += stream.read(compressedPacket, readDataLength, compressedDataLength - readDataLength);
+                                    readDataLength += stream.read(compressedReadPacket, readDataLength, compressedDataLength - readDataLength);
                                 }
 
                                 synchronized (inflater) {
                                     buf.ensureWriteCapacity(decompressedDataLength);
                                     inflater.reset();
-                                    inflater.setInput(compressedPacket, 0, compressedDataLength);
+                                    inflater.setInput(compressedReadPacket, 0, compressedDataLength);
                                     inflater.inflate(buf.nioReference());
                                 }
                             }
@@ -609,8 +608,9 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                             packet.networkId = packetID;
                             packet.phase = phase;
                             packet.set(Packet.INBOUND);
-                            packet.clear(Packet.CANCEL);
                         }
+
+                        countReceived.incrementAndGet();
 
                         // call event chains
                         var h = onTypedReceived.orNull(packet.getMapping());
@@ -634,7 +634,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                             unknownPacket.buffer(null);
                         }
                     } catch (Exception ex) {
-//                        ex.printStackTrace();
+                        ex.printStackTrace();
                         Throwables.sneakyThrow(ex); // todo error handling
                     }
                 }
@@ -841,13 +841,11 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
         onPacketReceived.addFirst(packetContainer -> {
             if (packetContainer.data() instanceof ClientboundLoginDisconnectPacket packet) {
                 disconnect(DisconnectReason.ISSUED, LegacyComponentSerializer.legacySection().deserialize(packet.getReason()));
-                close();
                 return 0;
             }
 
-            if (packetContainer.data() instanceof ClientboundDisconnectPacket packet) {
+            if (packetContainer.data() instanceof ClientboundPlayDisconnectPacket packet) {
                 disconnect(DisconnectReason.ISSUED, packet.getReason());
-                close();
                 return 0;
             }
 

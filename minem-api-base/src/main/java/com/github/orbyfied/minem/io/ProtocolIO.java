@@ -103,12 +103,6 @@ public class ProtocolIO {
     public static int readVarIntFromStream(InputStream stream) throws IOException {
         return readVarInt(() -> {
             int r = stream.read();
-            int t = 4;
-            while (r == -1 && t > 0) {
-                r = stream.read();
-                t--;
-            }
-
             if (r == -1) {
                 throw new IllegalArgumentException("Unexpected end of stream while reading var int");
             }

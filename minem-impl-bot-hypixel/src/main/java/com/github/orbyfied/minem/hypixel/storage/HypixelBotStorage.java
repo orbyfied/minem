@@ -57,6 +57,11 @@ public abstract class HypixelBotStorage {
     }
 
     public void loadCompactDefault(Map<String, Object> map) {
+        if (map == null) {
+            System.err.println("[!!] Failed to load Hypixel bot storage");
+            return;
+        }
+
         playerProperties = (Map<String, Map<String, Object>>) map.get("player-data");
         defaultPlayerProperties = (Map<String, Object>) map.get("default-player-data");
     }

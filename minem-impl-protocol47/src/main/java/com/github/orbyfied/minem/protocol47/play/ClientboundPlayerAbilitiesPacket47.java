@@ -1,9 +1,11 @@
 package com.github.orbyfied.minem.protocol47.play;
 
 import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
+import com.github.orbyfied.minem.data.Registries;
 import com.github.orbyfied.minem.protocol.Mapping;
 import com.github.orbyfied.minem.protocol.Packet;
 import com.github.orbyfied.minem.protocol.ProtocolPhases;
+import com.github.orbyfied.minem.protocol.ProtocolResources;
 import com.github.orbyfied.minem.protocol.play.ClientboundPlayerAbilitiesPacket;
 
 @Mapping(id = 0x39, phase = ProtocolPhases.PLAY, primaryName = "ClientboundPlayerAbilities", dataClass = ClientboundPlayerAbilitiesPacket.class)

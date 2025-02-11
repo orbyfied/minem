@@ -20,6 +20,7 @@ public class Protocol47 {
     private static final Class<?>[] CLASSES = new Class[] {
             ClientboundChatMessagePacket47.class,
             ServerboundChatPacket47.class,
+            ClientboundPlayDisconnectPacket47.class,
             ClientboundPlayerAbilitiesPacket47.class,
             ServerboundPlayerAbilitiesPacket47.class,
             ClientboundJoinGamePacket47.class,

@@ -11,6 +11,7 @@ public class HypixelCommandResult {
     final boolean success;
     String text;
     HypixelBot.Channel replyChannel;
+    boolean unique = true;
 
     public HypixelCommandResult text(String text) {
         this.text = text;
@@ -19,6 +20,11 @@ public class HypixelCommandResult {
 
     public HypixelCommandResult replyChannel(HypixelBot.Channel replyChannel) {
         this.replyChannel = replyChannel;
+        return this;
+    }
+
+    public HypixelCommandResult unique(boolean unique) {
+        this.unique = unique;
         return this;
     }
 

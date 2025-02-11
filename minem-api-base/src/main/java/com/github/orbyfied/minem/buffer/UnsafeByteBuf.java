@@ -11,6 +11,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.VarHandle;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
@@ -29,10 +30,10 @@ public abstract class UnsafeByteBuf {
         return new UnsafeDirectByteBuf(ptr, capacity).setFlags(FLAG_FIXED_POINTER);
     }
 
-    public static UnsafeByteBuf fixedInto(byte[] byteArray) {
-        return new UnsafeDirectByteBuf(getAddressOfObject((Object) byteArray) + BASE_OFF_BYTE_ARRAY, byteArray.length)
-                .setFlags(FLAG_FIXED_POINTER);
-    }
+//    public static UnsafeByteBuf fixedInto(byte[] byteArray) {
+//        return new UnsafeDirectByteBuf(getAddressOfObject((Object) byteArray) + BASE_OFF_BYTE_ARRAY, byteArray.length)
+//                .setFlags(FLAG_FIXED_POINTER);
+//    }
 
     /** The unsafe instance. */
     protected static final Unsafe UNSAFE = UnsafeUtil.getUnsafe();
@@ -77,6 +78,12 @@ public abstract class UnsafeByteBuf {
      * The direct (unsafe) pointer to the data of the buffer.
      */
     protected long ptr;
+
+    /**
+     * A lazy-loaded shared NIO reference instance which has an
+     * offset of 0 into this buffer.
+     */
+    protected ByteBuffer nio0Offset;
 
     {
         Memory.CLEANER.register(this, this::free);
@@ -284,7 +291,7 @@ public abstract class UnsafeByteBuf {
             throw new IllegalArgumentException("offset + len > capacity, out of buffer bounds");
         if (destOff + len > bytes.length)
             throw new IllegalArgumentException("destOff + len > destLen, out of array bounds");
-        UNSAFE.copyMemory(ptr + offset, getAddressOfObject((Object) bytes) + BASE_OFF_BYTE_ARRAY + destOff, len);
+        UNSAFE.copyMemory(null, ptr + offset, bytes, BASE_OFF_BYTE_ARRAY + destOff, len);
     }
 
     /**
@@ -310,7 +317,7 @@ public abstract class UnsafeByteBuf {
             throw new IllegalArgumentException("offset + len > capacity, out of buffer bounds");
         if (srcOff + len > bytes.length)
             throw new IllegalArgumentException("srcOff + len > destLen, out of array bounds");
-        UNSAFE.copyMemory(getAddressOfObject((Object) bytes) + BASE_OFF_BYTE_ARRAY + srcOff, ptr + offset, len);
+        UNSAFE.copyMemory(bytes, BASE_OFF_BYTE_ARRAY + srcOff, null, ptr + offset, len);
     }
 
     /**
@@ -345,22 +352,15 @@ public abstract class UnsafeByteBuf {
         try {
             int remaining = len;
             byte[] buffer = new byte[IO_BUFFER_SIZE];
-            long addr = getAddressOfObject(buffer) + BASE_OFF_BYTE_ARRAY;
-            int t = IO_RETRIES;
             while (remaining > 0) {
                 int r = stream.read(buffer, 0, Math.min(remaining, IO_BUFFER_SIZE));
                 if (r == -1) {
-                    if (t > 0) {
-                        t--;
-                        continue;
-                    }
-
                     throw new IllegalStateException("Failed to read " + Math.min(remaining, IO_BUFFER_SIZE) + " more bytes from stream, EOF");
                 }
 
                 remaining -= r;
 
-                setBytes(offset, addr, 0, r);
+                setBytes(offset, buffer, 0, r);
                 offset += r;
             }
 
@@ -379,23 +379,16 @@ public abstract class UnsafeByteBuf {
         try {
             int remaining = len;
             byte[] buffer = new byte[IO_BUFFER_SIZE];
-            long addr = getAddressOfObject((Object) buffer) + BASE_OFF_BYTE_ARRAY;
-            int t = IO_RETRIES;
             while (remaining > 0) {
                 int r = stream.read(buffer, 0, Math.min(remaining, IO_BUFFER_SIZE));
                 if (r == -1) {
-                    if (t > 0) {
-                        t--;
-                        continue;
-                    }
-
                     throw new IllegalStateException("Failed to read " + Math.min(remaining, IO_BUFFER_SIZE) + " more bytes from stream, EOF");
                 }
 
                 remaining -= r;
 
                 ensureWriteCapacity(r);
-                setBytes(writeIndex, addr, 0, r);
+                setBytes(writeIndex, buffer, 0, r);
                 writeIndex += r;
             }
 
@@ -414,10 +407,9 @@ public abstract class UnsafeByteBuf {
         try {
             int remaining = Math.min(capacity - offset, len);
             byte[] buffer = new byte[IO_BUFFER_SIZE];
-            long addr = getAddressOfObject((Object) buffer) + BASE_OFF_BYTE_ARRAY;
             while (remaining > 0) {
                 int r = Math.min(remaining, IO_BUFFER_SIZE);
-                getBytes(offset, addr, 0, r);
+                getBytes(offset, buffer, 0, r);
                 stream.write(buffer, 0, r);
 
                 remaining -= r;
@@ -621,6 +613,14 @@ public abstract class UnsafeByteBuf {
      */
     public ByteBuffer nioReference(int offset, int length) {
         try {
+            if (offset == 0 && length == capacity) {
+                if (nio0Offset != null) {
+                    return nio0Offset;
+                }
+
+                return nio0Offset = (ByteBuffer) constructorDirectNIOBuffer.invoke(this.ptr, length);
+            }
+
             return (ByteBuffer) constructorDirectNIOBuffer.invoke(this.ptr + offset, length);
         } catch (Throwable t) {
             Throwables.sneakyThrow(t);
@@ -631,9 +631,10 @@ public abstract class UnsafeByteBuf {
     static final long BASE_OFF_BYTE_ARRAY = UNSAFE.arrayBaseOffset(byte[].class);
     static final long BASE_OFF_OBJ_ARRAY = UNSAFE.arrayBaseOffset(Object[].class);
 
-    // THE VARARGS ARRAY IS SUPPOSED TO BE OF LENGTH 1
+    // THE VARARGS ARRAY IS EXPECTED TO BE OF LENGTH 1
     // CONTAINING ONLY THE OBJECT YOU WANT THE ADDRESS OF
     public static long getAddressOfObject(Object... obj) {
+        /* /!\ DOESN'T WORK WITH COMPRESSED OOPS /!\ */
         return UNSAFE.getLong(obj, BASE_OFF_OBJ_ARRAY);
     }
 

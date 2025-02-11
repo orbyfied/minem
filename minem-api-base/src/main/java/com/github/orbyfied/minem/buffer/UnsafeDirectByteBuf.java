@@ -21,6 +21,8 @@ public class UnsafeDirectByteBuf extends UnsafeByteBuf {
             ptr = 0;
             capacity = 0;
         }
+
+        this.nio0Offset = null;
     }
 
     @Override
@@ -37,6 +39,7 @@ public class UnsafeDirectByteBuf extends UnsafeByteBuf {
 
         this.capacity = capacity;
         this.ptr = newPtr;
+        this.nio0Offset = null;
         return this;
     }
 

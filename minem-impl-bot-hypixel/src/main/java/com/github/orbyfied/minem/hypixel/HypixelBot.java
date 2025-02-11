@@ -286,10 +286,12 @@ public class HypixelBot extends ClientComponent {
                     return new SendableResult(false, ctx.getChannel(), "u need " + getRank(command.getRank()).name().toLowerCase() + " or higher to exec", true);
                 }
 
+                System.out.println("[EX] Command '" + command.getName() + "' issued by " + chat.ignRanked() + " in " + chat.channel());
+
                 try {
                     var res = command.getExecutor().apply(ctx);
                     if (res != null) {
-                        return new SendableResult(res.isSuccess(), ctx.getChannel(), (res.isSuccess() ? "" : "err: ") + res.getText(), true);
+                        return new SendableResult(res.isSuccess(), ctx.getChannel(), (res.isSuccess() ? "" : "err: ") + res.getText(), res.isUnique());
                     }
                 } catch (Exception ex) {
                     ex.printStackTrace();

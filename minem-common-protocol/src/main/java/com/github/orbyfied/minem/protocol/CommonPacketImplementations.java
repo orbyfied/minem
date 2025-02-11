@@ -3,6 +3,7 @@ package com.github.orbyfied.minem.protocol;
 import com.github.orbyfied.minem.protocol.handshake.ClientboundStatusPacket;
 import com.github.orbyfied.minem.protocol.handshake.ServerboundHandshakePacket;
 import com.github.orbyfied.minem.protocol.login.*;
+import com.github.orbyfied.minem.protocol.play.ClientboundPlayDisconnectPacket;
 import com.github.orbyfied.minem.protocol.play.ClientboundKeepAlivePacket;
 import com.github.orbyfied.minem.protocol.play.ServerboundKeepAlivePacket;
 
@@ -21,7 +22,7 @@ public final class CommonPacketImplementations {
             ClientboundLoginSuccessPacket.class,
             ClientboundSetCompressionPacket.class,
             ClientboundKeepAlivePacket.class,
-            ServerboundKeepAlivePacket.class
+            ServerboundKeepAlivePacket.class,
     };
 
     public static final PacketMapping[] MAPPINGS = PacketUtil.compileAll(CLASSES);

@@ -3,6 +3,7 @@ package com.github.orbyfied.minem.data;
 import com.github.orbyfied.minem.buffer.UnsafeByteBuf;
 import dev.dewy.nbt.Nbt;
 import dev.dewy.nbt.api.Tag;
+import dev.dewy.nbt.api.snbt.SnbtConfig;
 import dev.dewy.nbt.tags.collection.CompoundTag;
 import slatepowered.veru.misc.Throwables;
 

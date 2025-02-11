@@ -25,6 +25,7 @@ public class ClientboundStatusPacket implements PacketData {
     @Override
     public void read(Packet container, UnsafeByteBuf in) throws Exception {
         json = in.readString();
+        System.out.println(json);
     }
 
     @Override

@@ -44,6 +44,12 @@ public class Packet {
 
     Object data;                 // The deserialized data of the packet
 
+    public void reset() {
+        this.data = null;
+        this.flags = 0;
+        this.networkId = 0;
+    }
+
     public Packet source(PacketSource source) {
         this.source = source;
         return this;
@@ -84,6 +90,14 @@ public class Packet {
 
     public Context context() {
         return context;
+    }
+
+    public ProtocolContext protocolContext() {
+        return context;
+    }
+
+    public Protocol protocol() {
+        return context.getProtocol();
     }
 
     @SuppressWarnings("unchecked")
