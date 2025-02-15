@@ -30,26 +30,8 @@ public abstract class UnsafeByteBuf {
         return new UnsafeDirectByteBuf(ptr, capacity).setFlags(FLAG_FIXED_POINTER);
     }
 
-//    public static UnsafeByteBuf fixedInto(byte[] byteArray) {
-//        return new UnsafeDirectByteBuf(getAddressOfObject((Object) byteArray) + BASE_OFF_BYTE_ARRAY, byteArray.length)
-//                .setFlags(FLAG_FIXED_POINTER);
-//    }
-
     /** The unsafe instance. */
     protected static final Unsafe UNSAFE = UnsafeUtil.getUnsafe();
-
-    /** The constructor for a direct byte buffer which takes an address. */
-    static final MethodHandle constructorDirectNIOBuffer;
-
-    static {
-        try {
-            constructorDirectNIOBuffer = UnsafeUtil.getInternalLookup()
-                    .findConstructor(Class.forName("java.nio.DirectByteBuffer"), MethodType.methodType(void.class,
-                            long.class /* addr */, int.class /* cap */));
-        } catch (Exception ex) {
-            throw new ExceptionInInitializerError(ex);
-        }
-    }
 
     /** Flag: indicates the buffer should not be reallocated under any circumstances */
     public static int FLAG_FIXED_POINTER = 1 << 1;
@@ -618,10 +600,10 @@ public abstract class UnsafeByteBuf {
                     return nio0Offset;
                 }
 
-                return nio0Offset = (ByteBuffer) constructorDirectNIOBuffer.invoke(this.ptr, length);
+                return nio0Offset = Memory.wrapAddressAsByteBuffer(ptr, length);
             }
 
-            return (ByteBuffer) constructorDirectNIOBuffer.invoke(this.ptr + offset, length);
+            return Memory.wrapAddressAsByteBuffer(ptr + offset, length);
         } catch (Throwable t) {
             Throwables.sneakyThrow(t);
             throw new AssertionError();

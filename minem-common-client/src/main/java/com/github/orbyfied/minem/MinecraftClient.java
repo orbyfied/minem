@@ -556,7 +556,6 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                 while (!socket.isClosed() && socket.isConnected()) {
                     try {
                         InputStream stream = getInputStream();
-                        buf.reset();
 
                         // check if compression is set, then decide
                         // how to read packet and data length
@@ -565,6 +564,8 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                             int decompressedDataLength = ProtocolIO.readVarIntFromStream(stream);
                             int viSizeDataLength = ProtocolIO.lengthVarInt(decompressedDataLength);
                             int compressedDataLength = packetLength - viSizeDataLength;
+
+                            buf.reset();
 
                             if (decompressedDataLength == 0) {
                                 // uncompressed packet
@@ -586,6 +587,7 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                             }
                         } else {
                             int dataLength = ProtocolIO.readVarIntFromStream(stream);
+                            buf.reset();
                             buf.writeFrom(stream, dataLength);
                         }
 
@@ -613,17 +615,17 @@ public class MinecraftClient extends ProtocolContext implements PacketSource, Pa
                         countReceived.incrementAndGet();
 
                         // call event chains
+                        onPacketReceived.invoker().onPacket(packet);
+                        if (packet.check(Packet.CANCEL)) {
+                            continue;
+                        }
+
                         var h = onTypedReceived.orNull(packet.getMapping());
                         if (h != null) {
                             h.invoker().onPacket(packet);
                             if (packet.check(Packet.CANCEL)) {
                                 continue;
                             }
-                        }
-
-                        onPacketReceived.invoker().onPacket(packet);
-                        if (packet.check(Packet.CANCEL)) {
-                            continue;
                         }
 
                         onPacket.invoker().onPacket(packet);

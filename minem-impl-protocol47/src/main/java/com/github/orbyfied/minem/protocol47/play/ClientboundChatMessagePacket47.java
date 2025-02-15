@@ -14,7 +14,6 @@ public final class ClientboundChatMessagePacket47 {
     public static void read(ClientboundChatMessagePacket packet, Packet container, UnsafeByteBuf in) throws Exception {
         packet.setMessage(GsonComponentSerializer.gson().deserialize(in.readString()));
         packet.setPosition(in.readByte());
-        System.out.println("[CHAT RECEIVED] " + PlainTextComponentSerializer.plainText().serialize(packet.getMessage()));
     }
 
     public static void write(ClientboundChatMessagePacket packet, Packet container, UnsafeByteBuf out) throws Exception {
