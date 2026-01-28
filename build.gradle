@@ -1,13 +1,17 @@
-group 'com.github.orbyfied'
+group 'com.orbyfied'
 version '1.0.0'
 
 def VERU_VERSION = "5a975a0"
 
 subprojects {
-    group 'com.github.orbyfied.minem'
+    group 'com.orbyfied.minem'
     version '1.0.0'
 
     afterEvaluate {
+        tasks.withType(JavaCompile) {
+            options.release = 16
+        }
+
         // dependencies
         dependencies {
             implementation "com.github.slatepowered.veru:veru-java8:${VERU_VERSION}"

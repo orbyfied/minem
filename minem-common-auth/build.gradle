@@ -5,4 +5,6 @@ plugins {
 
 dependencies {
     api project(":minem-api-base")
+
+    api "com.microsoft.azure:msal4j:1.23.1"
 }
